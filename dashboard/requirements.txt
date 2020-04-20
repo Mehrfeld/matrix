@@ -1,0 +1,6 @@
+flask
+dash
+dash_bootstrap_components
+plotly
+configparser
+mysql-connector
