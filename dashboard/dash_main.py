@@ -23,11 +23,7 @@ from threading import Lock
 
 from db_connector import DB_Reader
 
-<<<<<<< HEAD
 lock = Lock() 
-=======
-lock = Lock() ##
->>>>>>> test_branch
 
 db_reader_a = DB_Reader()
 #db_reader_b = DB_Reader()
