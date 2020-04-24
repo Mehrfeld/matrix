@@ -413,27 +413,14 @@ def update_graph_live(n, active_tab, figure_state, input1_last_value_state):
                 State('channel_to_show_a', 'value'), State('channel_to_show_b', 'value'), State('channel_to_show_c', 'value'), State('channel_to_show_d', 'value')])
 def current_cell(   selected_cell, button_load_curves_input, data, list_of_inputs_state, days_and_points_in_chart_state, lines_markers_state,
                     channel_to_show_a_state, channel_to_show_b_state, channel_to_show_c_state, channel_to_show_d_state):
-    
-    
-    
-    
+
     dropdowns_list = [channel_to_show_a_state, channel_to_show_b_state, channel_to_show_c_state, channel_to_show_d_state]
-    print(dropdowns_list)
     # Remove all 'empty' elements
     l = []
     for elem in dropdowns_list:
         if elem != 'empty':
             l.append(elem)
-    print(l)
-
     list_of_inputs_state = list_of_inputs_state +l
-
-    print(list_of_inputs_state)
-
-
-
-
-
     
 
     current_cell = data[selected_cell[0]['row']]['tabels_in_db'] # current cell as string formated as "2020_01_21"
