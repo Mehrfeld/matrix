@@ -109,7 +109,7 @@ def tab1_content():
     tab2_content = dbc.Card(
         dbc.CardBody(
             [
-                html.P("This is tab 2!", className="card-text")
+                html.P("This is tab 2!", style={'text-align':'left'}, className="card-text")
             ]), className="mt-3",)
 
 
@@ -118,8 +118,9 @@ def tab1_content():
     
     return tab2_content
 
-#-----------db_browser_content (Level 2)--------------
+#-----------db_browser_content (Level 2)-------------- 
 def db_browser_content():
+    inputs_to_show_list = [chunk.strip(None) for chunk in config['db_browser']['list_of_inputs'].split(',')]
     channels =[ {'label': 'Empty', 'value': 'empty'},
                 {'label': 'Analog Input 1 (calculated)', 'value': 'in_1_calculated'},
                 {'label': 'Analog Input 2 (calculated)', 'value': 'in_2_calculated'},
@@ -140,102 +141,79 @@ def db_browser_content():
     global fig
     browser_content = dbc.Card(
         dcc.Loading(dbc.CardBody(children = [
-                    dbc.Row(dbc.Col(html.Div(children=[ html.A("Download selected data", id = 'download_selected_data', href = 'download/2020_02_15.csv'),
-                                                        dbc.Tooltip("Noun: rare, the action or habit of estimating something as worthless.", target="download_selected_data", hide_arrow=False),
+                    dbc.Row(html.Div(children=[ dcc.Graph(id='day_chart', figure=fig, config={'displayModeBar': True, "displaylogo": False,'modeBarButtonsToRemove': ['lasso2d']}, style={'height': '100%', 'width': '100%'}),
+                                                html.Div(   html.Div(children=[ html.A("Download selected data", id = 'download_selected_data', href = 'download/2020_02_15.csv'),
+                                                                                dbc.Tooltip("Noun: rare, the action or habit of estimating something as worthless.", target="download_selected_data", hide_arrow=False)]), 
+                                                            style={'position': 'absolute', 'left':85, 'top':0})], # Div for the any elemets on top of Graph layer - left top corner.
+                                    style={'height': 500, 'width':'100%',  'position': 'relative', 'display': 'inline-block'})),
                     
-                                                    ]))),
                     dbc.Row(no_gutters=False,
                             children=[
-                            dbc.Col(html.Div(className="mt-3", children = [
-                                dbc.Button(className="mb-3", id = 'button_reload_tables', children=["Reload", html.Br(),"data base"], color="primary", size="sm", style={'min-width': '90px'}),
-                                dbc.Button(className="mb-3 ml-1", id = 'button_delete_selected', children=["Delete", html.Br(),"selected"], color="danger", size="sm", style={'min-width': '90px'}),
+                            dbc.Col(html.Div(children = [
+                                #dbc.Button(className="mb-3", id = 'button_reload_tables', children=["Reload", html.Br(),"data base"], color="primary", size="sm", style={'min-width': '90px'}),
+                                #dbc.Button(className="mb-3 ml-1", id = 'button_delete_selected', children=["Delete", html.Br(),"selected"], color="danger", size="sm", style={'min-width': '90px'}),
                                 html.Div(dash_table.DataTable(id='table', columns=[{"name": "Day Tables in db:", "id": "tabels_in_db"}], 
                                         selected_cells = [{'row': 0, 'column': 0, 'column_id': 'tabels_in_db'}],
                                         data=[{"tabels_in_db": i} for i in get_tables_list()],
                                         fixed_rows={ 'headers': True, 'data': 0 },
-                                        style_table={'maxHeight': '450px', 'cursor':'auto'},
+                                        style_table={'maxHeight': '200px', 'cursor':'auto'},
                                         style_cell={'textAlign': 'center', 'font-size':'140%'},
                                         style_as_list_view=True), className="pl-0 pr-0")],
                             ), width=3),
-                            dbc.Col(html.Div(children = [
-                                            html.Div(dcc.Graph(id='day_chart', figure=fig, config={"displaylogo": False,'modeBarButtonsToRemove': ['lasso2d']}, style={'height': '100%', 'width': '100%'}), style={'height': 500 }),
-
+                            dbc.Col(html.Div(style={'margin-left':16}, children = [
                                             dbc.Row(children=[
-                                            dbc.Col(children=[
+                                                dbc.Col(children=[
+                                                    dbc.Row([html.Div(  dcc.Dropdown(options=channels[1:16],                                                                                      
+                                                                                value=inputs_to_show_list[0], style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False,
+                                                                                id='channel_to_show_a'), style={'margin-left': 0, 'margin-right': 10}),
+                                                                        dcc.Dropdown(options=channels, 
+                                                                                    value=inputs_to_show_list[1],
+                                                                                    style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False, id='channel_to_show_b')], className='mb-2'),
 
-                                            dbc.Row([html.Div(  dcc.Dropdown(options=channels,                                                                                      #channel_to_show_a 
-                                                                        value='empty', style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False,
-                                                                        id='channel_to_show_a'), style={'margin-left': 16, 'margin-right': 10}),
-                                                                dcc.Dropdown(options=channels, 
-                                                                            value='empty',
-                                                                            style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False, id='channel_to_show_b')], className='mb-2'),
+                                                    dbc.Row([html.Div(  dcc.Dropdown(options=channels, 
+                                                                                value=inputs_to_show_list[2], style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False,
+                                                                                id='channel_to_show_c'), style={'margin-left': 0, 'margin-right': 10}),
+                                                                        dcc.Dropdown(options=channels, 
+                                                                                    value=inputs_to_show_list[3],
+                                                                                    style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False, id='channel_to_show_d')], className='mb-2'),                                          
+                                                                                        
+                                                    dbc.Row(dcc.Checklist(options=[
+                                                                                    {'label': 'Analog Output 1', 'value': 'output_1'},
+                                                                                    {'label': 'Analog Output 2', 'value': 'output_2'},
+                                                                                    {'label': 'Analog Output 3', 'value': 'output_3'},
+                                                                                    {'label': 'Analog Output 4', 'value': 'output_4'}],
+                                                                                value=[ chunk.strip(None) for chunk in config['db_browser']['list_of_outputs'].split(',') ],
+                                                                                labelStyle={'display': 'inline-block', 'margin-right':10, 'font-size':'16px'},
+                                                                                inputStyle={'margin-right':16, 'margin-left':10, 'transform':'scale(1.6)'},
+                                                                                style={ 'padding-top':8,'border-top-style': 'double', 'border-top-color': 'Gainsboro', 'border-top-width': '4px',
+                                                                                        'margin-bottom':8, 'border-bottom-style': 'double', 'border-bottom-color': 'Gainsboro', 'border-bottom-width': '4px'},
+                                                                                id='list_of_outputs')),
 
-                                            dbc.Row([html.Div(  dcc.Dropdown(options=channels, 
-                                                                        value='empty', style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False,
-                                                                        id='channel_to_show_c'), style={'margin-left': 16, 'margin-right': 10}),
-                                                                dcc.Dropdown(options=channels, 
-                                                                            value='empty',
-                                                                            style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False, id='channel_to_show_d')], className='mb-2'),                                          
-                                            
-                                            dbc.Row(dcc.Checklist(options=[
-                                                                            {'label': 'Analog Input 1', 'value': 'input_1'},
-                                                                            {'label': 'Analog Input 2', 'value': 'input_2'},
-                                                                            {'label': 'Analog Input 3', 'value': 'input_3'},
-                                                                            {'label': 'Analog Input 4', 'value': 'input_4'}
-                                                                        ],
-                                                                        value=[ chunk.strip(None) for chunk in config['db_browser']['list_of_inputs'].split(',') ],
-                                                                        labelStyle={'display': 'inline-block', 'margin-right':12, 'font-size':'16px'},
-                                                                        inputStyle={'margin-right':23, 'margin-left':20, 'transform':'scale(1.6)'},
-                                                                        id='list_of_inputs')),
+                                                    dbc.Row([html.Div(dcc.Dropdown(options=[ 
+                                                                                    {'label': 'One day / 180 sec.',     'value': 'one_180'},
+                                                                                    {'label': 'One day / 60 sec.',      'value': 'one_60'},
+                                                                                    {'label': 'One day / 30 sec.',      'value': 'one_30'},
+                                                                                    {'label': 'Three days / 180 sec.',  'value': 'three_180'},
+                                                                                    ], 
+                                                                                value=config['db_browser']['days_and_points_in_chart'], style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False,
+                                                                                id='days_and_points_in_chart'), style={'margin-left': 0, 'margin-right': 10}),
+                                                                    dcc.Dropdown(options=[  {'label': 'Lines+markers', 'value': 'lines+markers'},
+                                                                                    {'label': 'Lines', 'value': 'lines'},
+                                                                                    {'label': 'Markers', 'value': 'markers'}], 
+                                                                                    value=config['db_browser']['lines_markers'],
+                                                                                    style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False, id='lines_markers')])  
+                                                        ], width=9),
+                                                
+                                                dbc.Col(html.Div(dbc.Button(className="mb-3", id = 'button_load_curves', children=["Load", html.Br(),"curves"], color="primary", size="sm", style={'min-width': '90px'}), style={'text-align': 'left'}),
+                                                width=3)
+                                                ], justify="start"),
 
-                                            dbc.Row(dcc.Checklist(options=[
-                                                                            {'label': 'Analog Input 5', 'value': 'input_5'},
-                                                                            {'label': 'Analog Input 6', 'value': 'input_6'},
-                                                                            {'label': 'Analog Input 7', 'value': 'input_7'},
-                                                                            {'label': 'Analog Input 8', 'value': 'input_8'}
-                                                                        ],
-                                                                        value=[ chunk.strip(None) for chunk in config['db_browser']['list_of_inputs'].split(',') ],
-                                                                        labelStyle={'display': 'inline-block', 'margin-right':12, 'font-size':'16px'},
-                                                                        inputStyle={'margin-right':23, 'margin-left':20, 'transform':'scale(1.6)'},
-                                                                        id='list_of_inputs_b')),
-                                       
-                                            dbc.Row(dcc.Checklist(options=[
-                                                                            {'label': 'Analog Output 1', 'value': 'output_1'},
-                                                                            {'label': 'Analog Output 2', 'value': 'output_2'},
-                                                                            {'label': 'Analog Output 3', 'value': 'output_3'},
-                                                                            {'label': 'Analog Output 4', 'value': 'output_4'}],
-                                                                        value=[ chunk.strip(None) for chunk in config['db_browser']['list_of_outputs'].split(',') ],
-                                                                        labelStyle={'display': 'inline-block', 'margin-right':0, 'font-size':'16px'},
-                                                                        inputStyle={'margin-right':22, 'margin-left':20, 'transform':'scale(1.6)'},
-                                                                        id='list_of_outputs'))
-                                                ], width=9),
-                                            
-                                            dbc.Col(html.Div(dbc.Button(className="mb-3", id = 'button_load_curves', children=["Load", html.Br(),"curves"], color="primary", size="sm", style={'min-width': '90px'}), style={'text-align': 'left'}),
-                                            width=3)
-                                            ], justify="start"),
-
-                                            dbc.Row([html.Div(dcc.Dropdown(options=[ 
-                                                                            {'label': 'One day / 180 sec.',     'value': 'one_180'},
-                                                                            {'label': 'One day / 60 sec.',      'value': 'one_60'},
-                                                                            {'label': 'One day / 30 sec.',      'value': 'one_30'},
-                                                                            {'label': 'Three days / 180 sec.',  'value': 'three_180'},
-                                                                            ], 
-                                                                        value=config['db_browser']['days_and_points_in_chart'], style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False,
-                                                                        id='days_and_points_in_chart'), style={'margin-left': 16, 'margin-right': 10}),
-                                                    dcc.Dropdown(options=[  {'label': 'Lines+markers', 'value': 'lines+markers'},
-                                                                            {'label': 'Lines', 'value': 'lines'},
-                                                                            {'label': 'Markers', 'value': 'markers'}], 
-                                                                            value=config['db_browser']['lines_markers'],
-                                                                            style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False, id='lines_markers')]
-                                                    )  
-                                            ]), width=9, align='center')
+                                            # dbc.Row(html.Div(children=[ html.A("Download selected data", id = 'download_selected_data', href = 'download/2020_02_15.csv'),
+                                            #                             dbc.Tooltip("Noun: rare, the action or habit of estimating something as worthless.", target="download_selected_data", hide_arrow=False)]))  
+                                            ]), width=9, align='start')
                         ],
-                    ), 
-                      
-                    ],
-                    className=""), type = 'cube', fullscreen=True),
-            className="mt-3"
-        )
+                    )], className=""), type = 'cube', fullscreen=True),
+                    className="mt-3")
     return browser_content    
 
 
@@ -284,10 +262,10 @@ def settings_content():
     content_1 = html.Div(children=[ dbc.Row(no_gutters=True, className='mt-3', children=[dbc.Button(className="", id=f'save_AI_settings', children=["SAVE"], color="primary", outline=True,  size="sm", style={'min-width': '100%'})]),
                                     dbc.Row(no_gutters=True, className='mt-3', children=[ai_n_settings_block(1), ai_n_settings_block(2), ai_n_settings_block(3), ai_n_settings_block(4)]),
                                     dbc.Row(no_gutters=True, className='mt-3', children=[ai_n_settings_block(5), ai_n_settings_block(6), ai_n_settings_block(7), ai_n_settings_block(8)])                   
-                                ])
+                                ], style={'text-align': 'left'})
 
 
-    tab1_content = [    html.Div(id='hidden-div-1', style={'display':'none'}), # used for callbacks without any output
+    content_ai = [    html.Div(id='hidden-div-1', style={'display':'none'}), # used for callbacks without any output
                         html.Div(id='hidden-div-2', style={'display':'none'}), # used for callbacks without any output
                         html.Div(id='hidden-div-3', style={'display':'none'}), # used for callbacks without any output
                         content_1]
@@ -303,13 +281,13 @@ def settings_content():
     dropdown_zime_zone =  dcc.Dropdown(
         options=[{'label': f"{i}", 'value': f"{i}"} for i in pytz.all_timezones],
         value=config['db_browser']['local_time_zone'], clearable=False, id = 'dropdown_zime_zone') 
-    content_date_time = html.Div(dropdown_zime_zone, style={'min-height': '300px'}, className='mt-3')
+    content_date_time = html.Div(dropdown_zime_zone, style={'min-height': '300px', 'text-align':'left'}, className='mt-3')
 
 
     tab_settings_label_style = {"color": "#007bff", "cursor": "pointer", "font-size": "large"} 
     settings_content = dbc.Card(
         dbc.CardBody(dbc.Tabs(style={'margin-top':'0px'}, id='setting_tabs', children=[
-                                    dbc.Tab(tab1_content, label="Analog Inputs", tab_id='tab_ai', label_style=tab_settings_label_style),
+                                    dbc.Tab(content_ai, label="Analog Inputs", tab_id='tab_ai', label_style=tab_settings_label_style),
                                     dbc.Tab(content_mx, label="MATRIX", tab_id='tab_mx', label_style=tab_settings_label_style),
                                     dbc.Tab(content_ao, label="Analog Outputs", tab_id='tab_ao', label_style=tab_settings_label_style),
                                     dbc.Tab(content_date_time, label="Date and Time", tab_id='tab_dt', label_style=tab_settings_label_style, disabled=False)
@@ -318,15 +296,13 @@ def settings_content():
     return settings_content 
 
 
-
-
 #---------------------------------------------
 app = dash.Dash(__name__)
 app.title='Matrix'
 
 def serve_layout():
     tab_label_style = {"color": "#00AEF9", "cursor": "pointer", "font-size": "large"} 
-    return html.Div(html.Div(className="ml-2 mr-2 mt-2 mb-2", children=[
+    return html.Div(html.Div(className="pl-2 pr-2 pt-2 pb-2", children=[
         html.Div(children=[dbc.Row(justify="between", align="center",className="pt-2 ml-0 mr-0", style={'background-color':'LightSkyBlue', 'border-radius':'5px'}, children=[
                                 dbc.Col(children=[html.H6(html.Div(children = ["L O G O"], className="pt-2 pb-2 pl-2 pr-2", style={'text-align': 'left'}), style={'text-align': 'left'})], width=2),
                                 dbc.Col(html.Div("One of three columns", className="mb-2"), width=4),
@@ -345,7 +321,7 @@ def serve_layout():
             dcc.Interval(id='interval-component_10', interval=10*1000, n_intervals=0),  # Inreval triggers every 10 seconds
             dcc.Interval(id='interval-component_5', interval=5*1000, n_intervals=0),    # Inreval triggers every 5 seconds
             dcc.Interval(id='interval-component_1', interval=1*1000, n_intervals=0)     # Inreval triggers every 1 second
-                ])]), className='', style={"min-width": "1000px"})
+                ])], style={"width": "1280px", 'display': 'inline-block'}), style={"width": "100%", 'text-align': 'center'})
 
 app.layout = serve_layout
 # Heads up! You need to write app.layout = serve_layout not app.layout = serve_layout(). That is, define app.layout to the actual function instance.
@@ -409,9 +385,9 @@ def update_graph_live(n, active_tab, figure_state, input1_last_value_state):
 #--------This loads day chart in the db_browser
 @app.callback(  [Output("day_chart", "figure"), Output('download_selected_data', 'href'), Output('download_selected_data', 'children')], 
                 [Input("table", "selected_cells"), Input('button_load_curves', 'n_clicks')], 
-                [State("table", "data"), State('list_of_inputs', 'value'), State('days_and_points_in_chart', 'value'), State('lines_markers', 'value'),
+                [State("table", "data"), State('days_and_points_in_chart', 'value'), State('lines_markers', 'value'),
                 State('channel_to_show_a', 'value'), State('channel_to_show_b', 'value'), State('channel_to_show_c', 'value'), State('channel_to_show_d', 'value')])
-def current_cell(   selected_cell, button_load_curves_input, data, list_of_inputs_state, days_and_points_in_chart_state, lines_markers_state,
+def current_cell(   selected_cell, button_load_curves_input, data, days_and_points_in_chart_state, lines_markers_state,
                     channel_to_show_a_state, channel_to_show_b_state, channel_to_show_c_state, channel_to_show_d_state):
 
     dropdowns_list = [channel_to_show_a_state, channel_to_show_b_state, channel_to_show_c_state, channel_to_show_d_state]
@@ -420,7 +396,7 @@ def current_cell(   selected_cell, button_load_curves_input, data, list_of_input
     for elem in dropdowns_list:
         if elem != 'empty':
             l.append(elem)
-    list_of_inputs_state = list_of_inputs_state +l
+    list_of_inputs_state = l
     
 
     current_cell = data[selected_cell[0]['row']]['tabels_in_db'] # current cell as string formated as "2020_01_21"
@@ -432,8 +408,8 @@ def current_cell(   selected_cell, button_load_curves_input, data, list_of_input
         start_time = date_in_cell - datetime.timedelta(hours=12)
         end_time = date_in_cell + datetime.timedelta(hours=36)
     else:
-        start_time = date_in_cell - datetime.timedelta(hours=36)
-        end_time = date_in_cell + datetime.timedelta(hours=60)
+        start_time = date_in_cell - datetime.timedelta(hours=60)
+        end_time = date_in_cell + datetime.timedelta(hours=36)
 
     list_of_inputs_state.sort(reverse=True)
     lock.acquire()
@@ -462,11 +438,21 @@ def current_cell(   selected_cell, button_load_curves_input, data, list_of_input
     #line=dict(color=trace_colors[list_of_inputs_state[k]])
     k = 0
     for i in df_b: # überarbeiten mit "list_of_inputs_state"
-        fig.add_trace(go.Scattergl(mode=lines_markers_state, name=list_of_inputs_state[k], x=df_local_time, y=i[1]))
+        fig.add_trace(go.Scattergl(mode=lines_markers_state, yaxis=f"y{k+1}", name=list_of_inputs_state[k], x=df_local_time, y=i[1]))
         df_merged[list_of_inputs_state[k]] = i[1].reset_index(drop=True)
         k = k +1
     fig.add_trace(go.Scatter(x=[date_in_cell, date_in_cell], y=[0, 22], mode="lines", showlegend = False, line=dict(color='royalblue', width=2, dash='dot')))
     fig.add_trace(go.Scatter(x=[date_in_cell + datetime.timedelta(hours=24), date_in_cell + datetime.timedelta(hours=24)], y=[0, 22], mode="lines", showlegend = False, line=dict(color='royalblue', width=2, dash='dot')))
+    
+   
+    fig.update_layout(  xaxis=dict(domain=[0, 0.98]), 
+                        yaxis=dict(title="yaxis title", titlefont=dict(color="#1f77b4"), tickfont=dict(color="#1f77b4"), anchor="free", side="left", position=0),
+                        yaxis2=dict(title="yaxis2 title", titlefont=dict(color="#ff7f0e"), tickfont=dict(color="#ff7f0e"), anchor="free", side="right", position=0.98))
+    
+    #fig.update_layout(title_text="multiple y-axes example")
+    fig.update_layout(margin=dict(t=50))
+
+        
     input_list = ''.join(list_of_inputs_state).replace('input_','')
     file_name = f"{current_cell[2:10].replace('_', '')}_{fetch_sec_state}_{days_in_chart_state}_{input_list}.csv"
     df_merged.to_csv(work_dir + '/download/' + file_name, sep=',', index=False)
@@ -742,11 +728,13 @@ def switch_tab(ac):
 @app.callback(  Output("hidden-div-1", "children"),
                 [Input("dropdown_zime_zone", "value"),
                  Input('days_and_points_in_chart', 'value'),
-                 Input('list_of_inputs', 'value'),
+                 Input('channel_to_show_a', 'value'), Input('channel_to_show_b', 'value'), Input('channel_to_show_c', 'value'), Input('channel_to_show_d', 'value'),
                  Input('list_of_outputs', 'value'),
                  Input('lines_markers', 'value')])
-def update_config(time_zone, days_and_points_in_chart, list_of_inputs, list_of_outputs, lines_markers):
-    global config
+def update_config(  time_zone, days_and_points_in_chart,
+                    channel_to_show_a, channel_to_show_b, channel_to_show_c, channel_to_show_d,
+                    list_of_outputs, lines_markers):
+    # global config
 
     #--Settings
     config['db_browser']['local_time_zone'] = time_zone
@@ -755,11 +743,11 @@ def update_config(time_zone, days_and_points_in_chart, list_of_inputs, list_of_o
     config['db_browser']['days_and_points_in_chart'] = days_and_points_in_chart
     config['db_browser']['lines_markers'] = lines_markers
 
-
-    list_of_inputs.sort(reverse=False)
-    config['db_browser']['list_of_inputs'] = ', '.join(list_of_inputs)
+    config['db_browser']['list_of_inputs'] = channel_to_show_a +', '+ channel_to_show_b +', '+ channel_to_show_c +', '+ channel_to_show_d
+    
     list_of_outputs.sort(reverse=False)
-    config['db_browser']['list_of_outputs']= ', '.join(list_of_outputs)
+    config['db_browser']['list_of_outputs'] = ', '.join(list_of_outputs)
+
 
 
     write_config()
