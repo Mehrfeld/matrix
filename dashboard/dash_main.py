@@ -33,6 +33,7 @@ work_dir = os.path.abspath(os.path.dirname(__file__))
 config = configparser.ConfigParser()
 config.read(work_dir + '/matrix.ini')
 print(os.path.abspath(os.path.dirname(__file__)))
+
 def write_config():
     with open(work_dir + '/matrix.ini', 'w') as configfile:
         #fcntl.flock(configfile, fcntl.LOCK_EX)
@@ -113,8 +114,6 @@ def tab1_content():
             ]), className="mt-3",)
 
 
-
-
     
     return tab2_content
 
@@ -158,8 +157,7 @@ def db_browser_content():
                                         fixed_rows={ 'headers': True, 'data': 0 },
                                         style_table={'maxHeight': '200px', 'cursor':'auto'},
                                         style_cell={'textAlign': 'center', 'font-size':'140%'},
-                                        style_as_list_view=True), className="pl-0 pr-0")],
-                            ), width=3),
+                                        style_as_list_view=True), className="pl-0 pr-0")]), width=3),
                             dbc.Col(html.Div(style={'margin-left':16}, children = [
                                             dbc.Row(children=[
                                                 dbc.Col(children=[
@@ -207,15 +205,11 @@ def db_browser_content():
                                                 dbc.Col(html.Div(dbc.Button(className="mb-3", id = 'button_load_curves', children=["Load", html.Br(),"curves"], color="primary", size="sm", style={'min-width': '90px'}), style={'text-align': 'left'}),
                                                 width=3)
                                                 ], justify="start"),
-
-                                            # dbc.Row(html.Div(children=[ html.A("Download selected data", id = 'download_selected_data', href = 'download/2020_02_15.csv'),
-                                            #                             dbc.Tooltip("Noun: rare, the action or habit of estimating something as worthless.", target="download_selected_data", hide_arrow=False)]))  
                                             ]), width=9, align='start')
                         ],
                     )], className=""), type = 'cube', fullscreen=True),
                     className="mt-3")
     return browser_content    
-
 
 
 #-----------settings_content--------------------------
@@ -256,26 +250,64 @@ def settings_content():
                                     dbc.Row(no_gutters=True, children=[
                                     dbc.Col(html.Div(children=['Target units:'],style={'font-size': '15px', 'text-align':'right'}, className='mr-2 mt-2'), width=5),
                                     dbc.Col(dbc.Input(id=f"AI_{n}_units", placeholder="Enter units", value=config['AI'][f'AI_{n}_units'].replace('%%', '%'), type="text"), width=7)]), # AI units
-                                    
-
                                 ], body=True, style={'min-height': '250px'})])
-    content_1 = html.Div(children=[ dbc.Row(no_gutters=True, className='mt-3', children=[dbc.Button(className="", id=f'save_AI_settings', children=["SAVE"], color="primary", outline=True,  size="sm", style={'min-width': '100%'})]),
+    
+    content_1 = html.Div(children=[ dbc.Row(no_gutters=True, className='mt-3', children=[dbc.Button(className="", id=f'save_AI_settings', children=["SAVE INPUT SETTINGS"], color="primary", outline=True,  size="sm", style={'min-width': '100%'})]),
                                     dbc.Row(no_gutters=True, className='mt-3', children=[ai_n_settings_block(1), ai_n_settings_block(2), ai_n_settings_block(3), ai_n_settings_block(4)]),
                                     dbc.Row(no_gutters=True, className='mt-3', children=[ai_n_settings_block(5), ai_n_settings_block(6), ai_n_settings_block(7), ai_n_settings_block(8)])                   
                                 ], style={'text-align': 'left'})
-
 
     content_ai = [    html.Div(id='hidden-div-1', style={'display':'none'}), # used for callbacks without any output
                         html.Div(id='hidden-div-2', style={'display':'none'}), # used for callbacks without any output
                         html.Div(id='hidden-div-3', style={'display':'none'}), # used for callbacks without any output
                         content_1]
 
-
     # Content of 'MATRIX'.
     content_mx = html.Div(children=["-----CONTENT Matrix------"], style={'min-height': '300px'}, className='mt-3')
        
     # Content of 'Analog Outputs'.
-    content_ao = html.Div(children=["-----CONTENT AO------"], style={'min-height': '300px'}, className='mt-3')
+    def ao_n_settings_block(n):
+        if config['AO'][f'ao_{n}_active']=='True':
+            value_active = ['True']
+        else:
+            value_active = []
+        return dbc.Col(className='pr-2', children=[   
+                    dbc.Card(color='light', outline=True, inverse=False, id=f'AO_{n}_card', children=[
+
+                        dbc.Row(no_gutters=True, children=[
+                        dbc.Col(dbc.Input(id=f"AO_{n}_description", value=config['AO'][f'AO_{n}_description'].replace('%%', '%'), placeholder="Enter channel name ... ", type="text",  className="mb-2"), width=9),
+                        dbc.Col(dcc.Checklist(options=[{'label': f' AO {n}', 'value': 'True'}], value=value_active, id=f'AO_{n}_active'), style={'text-align': 'right', 'font-weight': 'bold'}, width=3)]),
+
+                        dbc.Row(children=[  dbc.Col(dbc.Input(id=f"AO_{n}_target_low", placeholder="...", value=config['AO'][f'AO_{n}_target_low'], inputMode='numeric', type='text'), width=3), # AO sourse low
+                                            dbc.Col(html.Div('a.u.', id=f'AO_{n}_units_a',  className="ml-2 mt-3"), width=4),
+
+                                            dbc.Col(dbc.Input(id=f"AO_{n}_source_low", placeholder="...", value=config['AO'][f'AO_{n}_source_low'], inputMode='numeric', type='text'), width=3), # AO target low
+                                            dbc.Col(html.Div('mA', className="ml-2 mt-3"), width=2)], no_gutters=True, className="mb-2"),  
+                                            
+                        dbc.Row(children=[  dbc.Col(dbc.Input(id=f"AO_{n}_target_high", placeholder="...", value=config['AO'][f'AO_{n}_target_high'], inputMode='numeric', type='text'), width=3), # AO sourse high
+                                            dbc.Col(html.Div('a.u.', id=f'AO_{n}_units_b', className="ml-2 mt-3"), width=4),
+                                            
+                                            dbc.Col(dbc.Input(id=f"AO_{n}_source_high", placeholder="...", value=config['AO'][f'AO_{n}_source_high'], inputMode='numeric', type='text'), width=3), # AO target high
+                                            dbc.Col(html.Div('mA', className="ml-2 mt-3"), width=2)], no_gutters=True, className="mb-2"),
+                        
+                        dbc.Row(no_gutters=True, children=[
+                        dbc.Col(html.Div(children=['Analog output', html.Br(), 'mode:'],style={'font-size': '15px', 'text-align':'right'}, className='mr-2 mt-1'), width=5),
+                        dbc.Col(html.Div(dcc.Dropdown(options=[  {'label': '0...20 mA', 'value': '0...20'},
+                                                {'label': '4...20 mA', 'value': '4...20'},
+                                                {'label': '0...10 V', 'value': '0...10'}], 
+                                                value=config['AO'][f'AO_{n}_mode'],                                                                                                             # AO mode
+                                                style={'min-width': '0', 'margin-left':0}, className="mb-2 mt-2", clearable=False, searchable=False, id=f'AO_{n}_mode')), width=7),]),
+
+                        dbc.Row(no_gutters=True, children=[
+                        dbc.Col(html.Div(children=['Target units:'],style={'font-size': '15px', 'text-align':'right'}, className='mr-2 mt-2'), width=5),
+                        dbc.Col(dbc.Input(id=f"AO_{n}_units", placeholder="Enter units", value=config['AO'][f'AO_{n}_units'].replace('%%', '%'), type="text"), width=7)]),                      # AO units
+                    ], body=True, style={'min-height': '250px'})])
+                                
+    content = html.Div(children=[   dbc.Row(no_gutters=True, className='mt-3', children=[ao_n_settings_block(1), ao_n_settings_block(2), ao_n_settings_block(3), ao_n_settings_block(4)]),
+                                    dbc.Row(no_gutters=True, className='mt-3', children=[dbc.Button(className="", id=f'save_AO_settings', children=["SAVE OUTPUT SETTINGS"], color="primary", outline=True,  size="sm", style={'min-width': '100%'})]),             
+                                ], style={'text-align': 'left'})
+
+    content_ao = html.Div(children=[content], style={'min-height': '300px'}, className='mt-3')
  
     # Content of 'Date and Time'
     dropdown_zime_zone =  dcc.Dropdown(
@@ -612,6 +644,56 @@ def set_active_8(active_value):
         config['AI']['AI_8_active'] = 'Flase'
         write_config()
         return ['', {'min-height': '250px'}]
+
+#------Set Analog Outputs active/disabled--------
+@app.callback(  [Output('AO_1_card', 'color'), Output('AO_1_card', 'style')],  # AO 1 active/disabled
+                [Input('AO_1_active', 'value')])
+def set_ao_active_1(active_value):
+    if active_value == ['True']:
+        config['AO']['AO_1_active'] = 'True'
+        write_config()
+        return ['primary', {'min-height': '250px', 'background-color':color}]
+    else:
+        config['AO']['AO_1_active'] = 'Flase'
+        write_config()
+        return ['', {'min-height': '250px'}]
+
+@app.callback(  [Output('AO_2_card', 'color'), Output('AO_2_card', 'style')],  # AO 2 active/disabled
+                [Input('AO_2_active', 'value')])
+def set_ao_active_2(active_value):
+    if active_value == ['True']:
+        config['AO']['AO_2_active'] = 'True'
+        write_config()
+        return ['primary', {'min-height': '250px', 'background-color':color}]
+    else:
+        config['AO']['AO_2_active'] = 'Flase'
+        write_config()
+        return ['', {'min-height': '250px'}]
+
+@app.callback(  [Output('AO_3_card', 'color'), Output('AO_3_card', 'style')],  # AO 3 active/disabled
+                [Input('AO_3_active', 'value')])
+def set_ao_active_3(active_value):
+    if active_value == ['True']:
+        config['AO']['AO_3_active'] = 'True'
+        write_config()
+        return ['primary', {'min-height': '250px', 'background-color':color}]
+    else:
+        config['AO']['AO_3_active'] = 'Flase'
+        write_config()
+        return ['', {'min-height': '250px'}]
+
+@app.callback(  [Output('AO_4_card', 'color'), Output('AO_4_card', 'style')],  # AO 4 active/disabled
+                [Input('AO_4_active', 'value')])
+def set_ao_active_4(active_value):
+    if active_value == ['True']:
+        config['AO']['AO_4_active'] = 'True'
+        write_config()
+        return ['primary', {'min-height': '250px', 'background-color':color}]
+    else:
+        config['AO']['AO_4_active'] = 'Flase'
+        write_config()
+        return ['', {'min-height': '250px'}]
+
 
 
 #------------Update Config / Analog Input Settings------------------------
