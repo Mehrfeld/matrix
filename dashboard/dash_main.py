@@ -216,8 +216,6 @@ def db_browser_content():
                     className="mt-3")
     return browser_content    
 
-
-
 #-----------settings_content--------------------------
 def settings_content():
 
