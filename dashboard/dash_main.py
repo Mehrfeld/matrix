@@ -117,18 +117,19 @@ def tab1_content():
     
     return tab2_content
 
-#-----------db_browser_content (Level 2)-------------- 
+#-----------db_browser_content (Level 2)--------------  
+
 def db_browser_content():
     inputs_to_show_list = [chunk.strip(None) for chunk in config['db_browser']['list_of_inputs'].split(',')]
     channels =[ {'label': 'Empty', 'value': 'empty'},
-                {'label': 'Analog Input 1 (calculated)', 'value': 'in_1_calculated'},
-                {'label': 'Analog Input 2 (calculated)', 'value': 'in_2_calculated'},
-                {'label': 'Analog Input 3 (calculated)', 'value': 'in_3_calculated'},
-                {'label': 'Analog Input 4 (calculated)', 'value': 'in_4_calculated'},
-                {'label': 'Analog Input 5 (calculated)', 'value': 'in_5_calculated'},
-                {'label': 'Analog Input 6 (calculated)', 'value': 'in_6_calculated'},
-                {'label': 'Analog Input 7 (calculated)', 'value': 'in_7_calculated'},
-                {'label': 'Analog Input 8 (calculated)', 'value': 'in_8_calculated'},
+                {'label': f'Analog Input 1 ({config["AI"]["AI_1_description"].replace("%%", "%")})', 'value': 'in_1_calculated'},
+                {'label': f'Analog Input 2 ({config["AI"]["AI_2_description"].replace("%%", "%")})', 'value': 'in_2_calculated'},
+                {'label': f'Analog Input 3 ({config["AI"]["AI_3_description"].replace("%%", "%")})', 'value': 'in_3_calculated'},
+                {'label': f'Analog Input 4 ({config["AI"]["AI_4_description"].replace("%%", "%")})', 'value': 'in_4_calculated'},
+                {'label': f'Analog Input 5 ({config["AI"]["AI_5_description"].replace("%%", "%")})', 'value': 'in_5_calculated'},
+                {'label': f'Analog Input 6 ({config["AI"]["AI_6_description"].replace("%%", "%")})', 'value': 'in_6_calculated'},
+                {'label': f'Analog Input 7 ({config["AI"]["AI_7_description"].replace("%%", "%")})', 'value': 'in_7_calculated'},
+                {'label': f'Analog Input 8 ({config["AI"]["AI_8_description"].replace("%%", "%")})', 'value': 'in_8_calculated'},
                 {'label': 'Analog Input 1 (raw signal)', 'value': 'input_1'},
                 {'label': 'Analog Input 2 (raw signal)', 'value': 'input_2'},
                 {'label': 'Analog Input 3 (raw signal)', 'value': 'input_3'},
@@ -143,7 +144,7 @@ def db_browser_content():
                     dbc.Row(html.Div(children=[ dcc.Graph(id='day_chart', figure=fig, config={'displayModeBar': True, "displaylogo": False,'modeBarButtonsToRemove': ['lasso2d']}, style={'height': '100%', 'width': '100%'}),
                                                 html.Div(   html.Div(children=[ html.A("Download selected data", id = 'download_selected_data', href = 'download/2020_02_15.csv'),
                                                                                 dbc.Tooltip("Noun: rare, the action or habit of estimating something as worthless.", target="download_selected_data", hide_arrow=False)]), 
-                                                            style={'position': 'absolute', 'left':85, 'top':0})], # Div for the any elemets on top of Graph layer - left top corner.
+                                                            style={'position': 'absolute', 'left':25, 'top':0})], # Div for the any elemets on top of Graph layer - left top corner.
                                     style={'height': 500, 'width':'100%',  'position': 'relative', 'display': 'inline-block'})),
                     
                     dbc.Row(no_gutters=False,
@@ -161,8 +162,8 @@ def db_browser_content():
                             dbc.Col(html.Div(style={'margin-left':16}, children = [
                                             dbc.Row(children=[
                                                 dbc.Col(children=[
-                                                    dbc.Row([html.Div(  dcc.Dropdown(options=channels[1:16],                                                                                      
-                                                                                value=inputs_to_show_list[0], style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False,
+                                                    dbc.Row([html.Div(  dcc.Dropdown(options=channels[1:17],                                                                                      
+                                                                                value=inputs_to_show_list[0], style={'min-width': '330px', 'margin-left':0, 'border-color': 'coral'}, clearable=False, searchable=False,
                                                                                 id='channel_to_show_a'), style={'margin-left': 0, 'margin-right': 10}),
                                                                         dcc.Dropdown(options=channels, 
                                                                                     value=inputs_to_show_list[1],
@@ -187,7 +188,8 @@ def db_browser_content():
                                                                                         'margin-bottom':8, 'border-bottom-style': 'double', 'border-bottom-color': 'Gainsboro', 'border-bottom-width': '4px'},
                                                                                 id='list_of_outputs')),
 
-                                                    dbc.Row([html.Div(dcc.Dropdown(options=[ 
+                                                    dbc.Row([html.Div(
+                                                                    dcc.Dropdown(options=[ 
                                                                                     {'label': 'One day / 180 sec.',     'value': 'one_180'},
                                                                                     {'label': 'One day / 60 sec.',      'value': 'one_60'},
                                                                                     {'label': 'One day / 30 sec.',      'value': 'one_30'},
@@ -199,13 +201,13 @@ def db_browser_content():
                                                                                     {'label': 'Lines', 'value': 'lines'},
                                                                                     {'label': 'Markers', 'value': 'markers'}], 
                                                                                     value=config['db_browser']['lines_markers'],
-                                                                                    style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False, id='lines_markers')])  
+                                                                                    style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False, id='lines_markers')], style={})  
                                                         ], width=9),
                                                 
                                                 dbc.Col(html.Div(dbc.Button(className="mb-3", id = 'button_load_curves', children=["Load", html.Br(),"curves"], color="primary", size="sm", style={'min-width': '90px'}), style={'text-align': 'left'}),
                                                 width=3)
                                                 ], justify="start"),
-                                            ]), width=9, align='start')
+                                            ]), width=9, align='start')      
                         ],
                     )], className=""), type = 'cube', fullscreen=True),
                     className="mt-3")
@@ -224,7 +226,7 @@ def settings_content():
                                 dbc.Card(color='light', outline=True, inverse=False, id=f'AI_{n}_card', children=[
 
                                     dbc.Row(no_gutters=True, children=[
-                                    dbc.Col(dbc.Input(id=f"AI_{n}_description", value=config['AI'][f'AI_{n}_description'].replace('%%', '%'), placeholder="Enter channel name ... ", type="text",  className="mb-2"), width=9),
+                                    dbc.Col(dbc.Input(id=f"AI_{n}_description", value=config['AI'][f'AI_{n}_description'].replace('%%', '%'), placeholder=" ... ", type="text",  className="mb-2"), width=9),
                                     dbc.Col(dcc.Checklist(options=[{'label': f' AI {n}', 'value': 'True'}], value=value_active, id=f'AI_{n}_active'), style={'text-align': 'right', 'font-weight': 'bold'}, width=3)]),
 
 
@@ -251,7 +253,7 @@ def settings_content():
                                     dbc.Col(dbc.Input(id=f"AI_{n}_units", placeholder="Enter units", value=config['AI'][f'AI_{n}_units'].replace('%%', '%'), type="text"), width=7)]), # AI units
                                 ], body=True, style={'min-height': '250px'})])
     
-    content_1 = html.Div(children=[ dbc.Row(no_gutters=True, className='mt-3', children=[dbc.Button(className="", id=f'save_AI_settings', children=["SAVE INPUT SETTINGS"], color="primary", outline=True,  size="sm", style={'min-width': '100%'})]),
+    content_1 = html.Div(children=[ dbc.Row(no_gutters=True, className='mt-3', children=[dbc.Button(className="", id=f'save_AI_settings', children=["SAVE ANALOG INPUT SETTINGS"], color="primary", outline=True,  size="sm", style={'min-width': '100%'})]),
                                     dbc.Row(no_gutters=True, className='mt-3', children=[ai_n_settings_block(1), ai_n_settings_block(2), ai_n_settings_block(3), ai_n_settings_block(4)]),
                                     dbc.Row(no_gutters=True, className='mt-3', children=[ai_n_settings_block(5), ai_n_settings_block(6), ai_n_settings_block(7), ai_n_settings_block(8)])                   
                                 ], style={'text-align': 'left'})
@@ -261,9 +263,33 @@ def settings_content():
                         html.Div(id='hidden-div-3', style={'display':'none'}), # used for callbacks without any output
                         content_1]
 
-    # Content of 'MATRIX'.
-    content_mx = html.Div(children=["-----CONTENT Matrix------"], style={'min-height': '300px'}, className='mt-3')
+    # Content of 'MATRIX'. 
+    models_list =[ 
+            {'label': 'Model 1', 'value': 'model_1'},
+            {'label': 'Model 2', 'value': 'model_2'},
+            {'label': 'Model 3', 'value': 'model_3'},
+            {'label': 'Model 4', 'value': 'model_4'},]
+
+    content_mx = html.Div(children=[dbc.Row(children=[
+            dbc.Col(html.Div('Model Inputs'), width=4),
+
+
+            dbc.Col(html.Div(
+                    dcc.Dropdown(options=models_list, value='model_1', style={'min-width': '330px', 'margin-left':0, 'font-weight': 'bold'}, clearable=False, searchable=False, id='models_list'))),
+
+
+            dbc.Col(html.Div('Model Outputs'), width=4)
+            ])], style={'min-height': '300px'}, className='mt-3')
        
+
+
+
+
+
+
+
+
+
     # Content of 'Analog Outputs'.
     def ao_n_settings_block(n):
         if config['AO'][f'ao_{n}_active']=='True':
@@ -303,7 +329,7 @@ def settings_content():
                     ], body=True, style={'min-height': '250px'})])
                                 
     content = html.Div(children=[   dbc.Row(no_gutters=True, className='mt-3', children=[ao_n_settings_block(1), ao_n_settings_block(2), ao_n_settings_block(3), ao_n_settings_block(4)]),
-                                    dbc.Row(no_gutters=True, className='mt-3', children=[dbc.Button(className="", id=f'save_AO_settings', children=["SAVE OUTPUT SETTINGS"], color="primary", outline=True,  size="sm", style={'min-width': '100%'})]),             
+                                    dbc.Row(no_gutters=True, className='mt-3', children=[dbc.Button(className="", id=f'save_AO_settings', children=["SAVE ANALOG OUTPUT SETTINGS"], color="primary", outline=True,  size="sm", style={'min-width': '100%'})]),             
                                 ], style={'text-align': 'left'})
 
     content_ao = html.Div(children=[content], style={'min-height': '300px'}, className='mt-3')
@@ -417,10 +443,12 @@ def update_graph_live(n, active_tab, figure_state, input1_last_value_state):
 @app.callback(  [Output("day_chart", "figure"), Output('download_selected_data', 'href'), Output('download_selected_data', 'children')], 
                 [Input("table", "selected_cells"), Input('button_load_curves', 'n_clicks')], 
                 [State("table", "data"), State('days_and_points_in_chart', 'value'), State('lines_markers', 'value'),
-                State('channel_to_show_a', 'value'), State('channel_to_show_b', 'value'), State('channel_to_show_c', 'value'), State('channel_to_show_d', 'value')])
+                State('channel_to_show_a', 'value'), State('channel_to_show_b', 'value'), State('channel_to_show_c', 'value'), State('channel_to_show_d', 'value'),
+                State('channel_to_show_a', 'options')])
 def current_cell(   selected_cell, button_load_curves_input, data, days_and_points_in_chart_state, lines_markers_state,
-                    channel_to_show_a_state, channel_to_show_b_state, channel_to_show_c_state, channel_to_show_d_state):
-
+                    channel_to_show_a_state, channel_to_show_b_state, channel_to_show_c_state, channel_to_show_d_state,
+                    channel_to_show_a_options):
+    
     dropdowns_list = [channel_to_show_a_state, channel_to_show_b_state, channel_to_show_c_state, channel_to_show_d_state]
     # Remove all 'empty' elements
     l = []
@@ -442,7 +470,7 @@ def current_cell(   selected_cell, button_load_curves_input, data, days_and_poin
         start_time = date_in_cell - datetime.timedelta(hours=60)
         end_time = date_in_cell + datetime.timedelta(hours=36)
 
-    list_of_inputs_state.sort(reverse=True)
+    list_of_inputs_state.sort(reverse=False)
     lock.acquire()
     try: 
         df_b = db_reader_a.get_data_generic('date_time_utc', list_of_inputs_state, start_time.strftime('%Y_%m_%d %H:%M:%S') , end_time.strftime('%Y_%m_%d %H:%M:%S'), fetch_every_n_sec = fetch_sec_state) # df_b is list of pandas frames
@@ -465,25 +493,46 @@ def current_cell(   selected_cell, button_load_curves_input, data, days_and_poin
     
     data = {'Date and Time': df_local_time} 
     df_merged = pd.DataFrame(data) 
-    #trace_colors = {'input_1':'#119DFF', 'input_2':'#EA11FF','input_3':'#FF7311', 'input_4':'#26FF11'}
-    #line=dict(color=trace_colors[list_of_inputs_state[k]])
+    trace_colors = ['#119DFF', '#EA11FF', '#FF7311', '#26FF11']
+
     k = 0
-    for i in df_b: # überarbeiten mit "list_of_inputs_state"
-        fig.add_trace(go.Scattergl(mode=lines_markers_state, yaxis=f"y{k+1}", name=list_of_inputs_state[k], x=df_local_time, y=i[1]))
+    for i in df_b:     
+        fig.add_trace(go.Scattergl(line=dict(color=trace_colors[k]), mode=lines_markers_state, yaxis=f"y{k+1}", name=list_of_inputs_state[k], x=df_local_time, y=i[1]))
         df_merged[list_of_inputs_state[k]] = i[1].reset_index(drop=True)
         k = k +1
-    fig.add_trace(go.Scatter(x=[date_in_cell, date_in_cell], y=[0, 22], mode="lines", showlegend = False, line=dict(color='royalblue', width=2, dash='dot')))
-    fig.add_trace(go.Scatter(x=[date_in_cell + datetime.timedelta(hours=24), date_in_cell + datetime.timedelta(hours=24)], y=[0, 22], mode="lines", showlegend = False, line=dict(color='royalblue', width=2, dash='dot')))
+    # fig.add_trace(go.Scatter(x=[date_in_cell, date_in_cell], y=[0, 22], yaxis='y1', mode="lines", showlegend = False, line=dict(color='royalblue', width=2, dash='dot')))
+    # fig.add_trace(go.Scatter(x=[date_in_cell + datetime.timedelta(hours=24), date_in_cell + datetime.timedelta(hours=24)], y=[0, 22], yaxis='y1', mode="lines", showlegend = False, line=dict(color='royalblue', width=2, dash='dot')))
     
-   
-    fig.update_layout(  xaxis=dict(domain=[0, 0.98]), 
-                        yaxis=dict(title="yaxis title", titlefont=dict(color="#1f77b4"), tickfont=dict(color="#1f77b4"), anchor="free", side="left", position=0),
-                        yaxis2=dict(title="yaxis2 title", titlefont=dict(color="#ff7f0e"), tickfont=dict(color="#ff7f0e"), anchor="free", side="right", position=0.98))
-    
-    #fig.update_layout(title_text="multiple y-axes example")
-    fig.update_layout(margin=dict(t=50))
+ 
+    yaxis_names = []
+    for i in range (0, 4):
+        try:
+            yaxis_names.append(list_of_inputs_state[i])
+        except:
+            yaxis_names.append('***')  
+    yaxis_labels = []
 
-        
+    for j in yaxis_names:
+        if j == '***':
+            yaxis_labels.append('***')
+        else:
+            for i in channel_to_show_a_options:
+                if i['value'] == j:
+                    yaxis_labels.append(i['label'])
+                else:
+                    pass
+
+    
+    fig.update_layout(  
+                        yaxis =dict(title=yaxis_labels[0], titlefont=dict(color="#119DFF"), tickfont=dict(color="#119DFF"), anchor="free", side="left", position=0),
+                        yaxis2=dict(title=yaxis_labels[1], titlefont=dict(color="#EA11FF"), tickfont=dict(color="#EA11FF"), anchor="free", side="left", position=0.07),
+                        yaxis3=dict(title=yaxis_labels[2], titlefont=dict(color="#FF7311"), tickfont=dict(color="#FF7311"), anchor="free", side="left", position=0.14),
+                        yaxis4=dict(title=yaxis_labels[3], titlefont=dict(color="#26FF11"), tickfont=dict(color="#26FF11"), anchor="free", side="left", position=0.21))
+    
+    x_domain_list = [0, 0.07, 0.14, 0.21]
+    fig.update_layout(xaxis=dict(domain=[x_domain_list[k-1], 1]))
+    fig.update_layout(margin=dict(t=50))
+       
     input_list = ''.join(list_of_inputs_state).replace('input_','')
     file_name = f"{current_cell[2:10].replace('_', '')}_{fetch_sec_state}_{days_in_chart_state}_{input_list}.csv"
     df_merged.to_csv(work_dir + '/download/' + file_name, sep=',', index=False)
@@ -725,14 +774,15 @@ def update_config_AI(   AI_1_n_clicks,
                         AI_8_source_low, AI_8_target_low, AI_8_source_high, AI_8_target_high,  
                         AI_1_description, AI_2_description, AI_3_description, AI_4_description, AI_5_description, AI_6_description, AI_7_description, AI_8_description):
 
-    config['AI']['AI_1_description'] = AI_1_description.replace('%', '%%') # Configparser does not accept '%', use '%%' instead
-    config['AI']['AI_2_description'] = AI_2_description.replace('%', '%%')
-    config['AI']['AI_3_description'] = AI_3_description.replace('%', '%%')
-    config['AI']['AI_4_description'] = AI_4_description.replace('%', '%%')
-    config['AI']['AI_5_description'] = AI_5_description.replace('%', '%%')
-    config['AI']['AI_6_description'] = AI_6_description.replace('%', '%%')
-    config['AI']['AI_7_description'] = AI_7_description.replace('%', '%%')
-    config['AI']['AI_8_description'] = AI_8_description.replace('%', '%%')
+     
+    config['AI']['AI_1_description'] = '...' if AI_1_description == '' else AI_1_description.replace('%', '%%')       # Configparser does not accept '%', use '%%' instead
+    config['AI']['AI_2_description'] = '...' if AI_2_description == '' else AI_2_description.replace('%', '%%')
+    config['AI']['AI_3_description'] = '...' if AI_3_description == '' else AI_3_description.replace('%', '%%')
+    config['AI']['AI_4_description'] = '...' if AI_4_description == '' else AI_4_description.replace('%', '%%')
+    config['AI']['AI_5_description'] = '...' if AI_5_description == '' else AI_5_description.replace('%', '%%')
+    config['AI']['AI_6_description'] = '...' if AI_6_description == '' else AI_6_description.replace('%', '%%')
+    config['AI']['AI_7_description'] = '...' if AI_7_description == '' else AI_7_description.replace('%', '%%')
+    config['AI']['AI_8_description'] = '...' if AI_8_description == '' else AI_8_description.replace('%', '%%')
 
     config['AI']['AI_1_units'] = AI_1_units.replace('%', '%%')
     config['AI']['AI_2_units'] = AI_2_units.replace('%', '%%')
