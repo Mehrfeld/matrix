@@ -62,6 +62,13 @@ while connection_flag == False:
 mycursor = mydb.cursor(buffered=True)
 
 rw_1 = RandomWalker()
+rw_2 = RandomWalker()
+rw_3 = RandomWalker()
+rw_4 = RandomWalker()
+rw_5 = RandomWalker()
+rw_6 = RandomWalker()
+rw_7 = RandomWalker()
+
 current_table = ''
 writing_to_db_flag = True # writing to data base is possible if True
 WAIT_SECONDS = 1                                                        # sampling rate in secinds
@@ -77,12 +84,12 @@ def analog_input_reader():
 
 
     input_1 = round(rw_1.get_single_value(),3)
-    input_2 = round(random.uniform(8, 12), 3)
-    input_3 = round(random.uniform(12, 16), 3)
-    input_4 = round(random.uniform(16, 20), 3)
-    input_5 = round(random.uniform(15, 19), 3)
-    input_6 = round(random.uniform(11, 15), 3)
-    input_7 = round(random.uniform(7, 11), 3)
+    input_2 = round(rw_2.get_single_value(),3)
+    input_3 = round(rw_3.get_single_value(),3)
+    input_4 = round(rw_4.get_single_value(),3)
+    input_5 = round(rw_5.get_single_value(),3)
+    input_6 = round(rw_6.get_single_value(),3)
+    input_7 = round(rw_7.get_single_value(),3)
     input_8 = round(random.uniform(5, 9), 3)
     
     list_of_inputs = [input_1, input_2, input_3, input_4, input_5, input_6, input_7, input_8]

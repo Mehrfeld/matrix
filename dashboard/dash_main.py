@@ -158,35 +158,30 @@ def db_browser_content():
                                         fixed_rows={ 'headers': True, 'data': 0 },
                                         style_table={'maxHeight': '200px', 'cursor':'auto'},
                                         style_cell={'textAlign': 'center', 'font-size':'140%'},
-                                        style_as_list_view=True), className="pl-0 pr-0")]), width=3),
+                                        style_as_list_view=True), className="pl-0 pr-0")]), width=3),      
                             dbc.Col(html.Div(style={'margin-left':16}, children = [
                                             dbc.Row(children=[
-                                                dbc.Col(children=[
-                                                    dbc.Row([html.Div(  dcc.Dropdown(options=channels[1:17],                                                                                      
-                                                                                value=inputs_to_show_list[0], style={'min-width': '330px', 'margin-left':0, 'border-color': 'coral'}, clearable=False, searchable=False,
+                                                dbc.Col(children=[                                                    
+                                                    dbc.Row([html.Div(  dcc.Dropdown(options=channels[1:17], 
+                                                                                value=inputs_to_show_list[0], 
+                                                                                style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False,
                                                                                 id='channel_to_show_a'), style={'margin-left': 0, 'margin-right': 10}),
                                                                         dcc.Dropdown(options=channels, 
-                                                                                    value=inputs_to_show_list[1],
-                                                                                    style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False, id='channel_to_show_b')], className='mb-2'),
-
+                                                                                value=inputs_to_show_list[1],
+                                                                                style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False, 
+                                                                                id='channel_to_show_b')], className='mb-2'),                                                    
+                                                    
+                                                    
                                                     dbc.Row([html.Div(  dcc.Dropdown(options=channels, 
-                                                                                value=inputs_to_show_list[2], style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False,
+                                                                                value=inputs_to_show_list[2], 
+                                                                                style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False,
                                                                                 id='channel_to_show_c'), style={'margin-left': 0, 'margin-right': 10}),
                                                                         dcc.Dropdown(options=channels, 
-                                                                                    value=inputs_to_show_list[3],
-                                                                                    style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False, id='channel_to_show_d')], className='mb-2'),                                          
+                                                                                value=inputs_to_show_list[3],
+                                                                                style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False, 
+                                                                                id='channel_to_show_d')], className='mb-2'),                                          
                                                                                         
-                                                    dbc.Row(dcc.Checklist(options=[
-                                                                                    {'label': 'Analog Output 1', 'value': 'output_1'},
-                                                                                    {'label': 'Analog Output 2', 'value': 'output_2'},
-                                                                                    {'label': 'Analog Output 3', 'value': 'output_3'},
-                                                                                    {'label': 'Analog Output 4', 'value': 'output_4'}],
-                                                                                value=[ chunk.strip(None) for chunk in config['db_browser']['list_of_outputs'].split(',') ],
-                                                                                labelStyle={'display': 'inline-block', 'margin-right':10, 'font-size':'16px'},
-                                                                                inputStyle={'margin-right':16, 'margin-left':10, 'transform':'scale(1.6)'},
-                                                                                style={ 'padding-top':8,'border-top-style': 'double', 'border-top-color': 'Gainsboro', 'border-top-width': '4px',
-                                                                                        'margin-bottom':8, 'border-bottom-style': 'double', 'border-bottom-color': 'Gainsboro', 'border-bottom-width': '4px'},
-                                                                                id='list_of_outputs')),
+                                                    dbc.Row(html.Div('',style={'width':'670px','margin-top':4, 'margin-bottom':12, 'border-top-style': 'double', 'border-top-color': 'Gainsboro', 'border-top-width': '4px'})),
 
                                                     dbc.Row([html.Div(
                                                                     dcc.Dropdown(options=[ 
@@ -384,13 +379,6 @@ app.layout = serve_layout
 # Heads up! You need to write app.layout = serve_layout not app.layout = serve_layout(). That is, define app.layout to the actual function instance.
 
 
-#---------------------
-@app.server.route('/download/<path:path>')
-def download(path):
-    """Serve a file from the upload directory."""
-    return send_file(f'download/{path}', mimetype='text/csv', attachment_filename=f'{path}', as_attachment=True)
-
-
 
 #-----------CALLBACKS---------------------                              
 
@@ -452,12 +440,15 @@ def current_cell(   selected_cell, button_load_curves_input, data, days_and_poin
     dropdowns_list = [channel_to_show_a_state, channel_to_show_b_state, channel_to_show_c_state, channel_to_show_d_state]
     # Remove all 'empty' elements
     l = []
+    list_of_channels = []
+    channel_index = 0
     for elem in dropdowns_list:
         if elem != 'empty':
             l.append(elem)
+            list_of_channels.append(channel_index)
+        channel_index = channel_index + 1
     list_of_inputs_state = l
-    
-
+ 
     current_cell = data[selected_cell[0]['row']]['tabels_in_db'] # current cell as string formated as "2020_01_21"
     date_in_cell = datetime.datetime.strptime(current_cell, '%Y_%m_%d')
     days_in_chart_state = days_and_points_in_chart_state.split('_')[0]
@@ -470,7 +461,6 @@ def current_cell(   selected_cell, button_load_curves_input, data, days_and_poin
         start_time = date_in_cell - datetime.timedelta(hours=60)
         end_time = date_in_cell + datetime.timedelta(hours=36)
 
-    list_of_inputs_state.sort(reverse=False)
     lock.acquire()
     try: 
         df_b = db_reader_a.get_data_generic('date_time_utc', list_of_inputs_state, start_time.strftime('%Y_%m_%d %H:%M:%S') , end_time.strftime('%Y_%m_%d %H:%M:%S'), fetch_every_n_sec = fetch_sec_state) # df_b is list of pandas frames
@@ -494,15 +484,6 @@ def current_cell(   selected_cell, button_load_curves_input, data, days_and_poin
     data = {'Date and Time': df_local_time} 
     df_merged = pd.DataFrame(data) 
     trace_colors = ['#119DFF', '#EA11FF', '#FF7311', '#26FF11']
-
-    k = 0
-    for i in df_b:     
-        fig.add_trace(go.Scattergl(line=dict(color=trace_colors[k]), mode=lines_markers_state, yaxis=f"y{k+1}", name=list_of_inputs_state[k], x=df_local_time, y=i[1]))
-        df_merged[list_of_inputs_state[k]] = i[1].reset_index(drop=True)
-        k = k +1
-    # fig.add_trace(go.Scatter(x=[date_in_cell, date_in_cell], y=[0, 22], yaxis='y1', mode="lines", showlegend = False, line=dict(color='royalblue', width=2, dash='dot')))
-    # fig.add_trace(go.Scatter(x=[date_in_cell + datetime.timedelta(hours=24), date_in_cell + datetime.timedelta(hours=24)], y=[0, 22], yaxis='y1', mode="lines", showlegend = False, line=dict(color='royalblue', width=2, dash='dot')))
-    
  
     yaxis_names = []
     for i in range (0, 4):
@@ -511,7 +492,6 @@ def current_cell(   selected_cell, button_load_curves_input, data, days_and_poin
         except:
             yaxis_names.append('***')  
     yaxis_labels = []
-
     for j in yaxis_names:
         if j == '***':
             yaxis_labels.append('***')
@@ -522,26 +502,41 @@ def current_cell(   selected_cell, button_load_curves_input, data, days_and_poin
                 else:
                     pass
 
+
+    k = 0
+    for i in df_b:     
+        fig.add_trace(go.Scattergl(line=dict(color=trace_colors[list_of_channels[k]]), mode=lines_markers_state, yaxis=f"y{k+1}", name=list_of_inputs_state[k], x=df_local_time, y=i[1]))
+        df_merged[yaxis_labels[k]] = i[1].reset_index(drop=True)
+        k = k +1
+    # fig.add_trace(go.Scatter(x=[date_in_cell, date_in_cell], y=[0, 22], yaxis='y1', mode="lines", showlegend = False, line=dict(color='royalblue', width=2, dash='dot')))
+    # fig.add_trace(go.Scatter(x=[date_in_cell + datetime.timedelta(hours=24), date_in_cell + datetime.timedelta(hours=24)], y=[0, 22], yaxis='y1', mode="lines", showlegend = False, line=dict(color='royalblue', width=2, dash='dot')))
     
+    list_of_channels.extend([0] * (4 - len(list_of_channels)))
     fig.update_layout(  
-                        yaxis =dict(title=yaxis_labels[0], titlefont=dict(color="#119DFF"), tickfont=dict(color="#119DFF"), anchor="free", side="left", position=0),
-                        yaxis2=dict(title=yaxis_labels[1], titlefont=dict(color="#EA11FF"), tickfont=dict(color="#EA11FF"), anchor="free", side="left", position=0.07),
-                        yaxis3=dict(title=yaxis_labels[2], titlefont=dict(color="#FF7311"), tickfont=dict(color="#FF7311"), anchor="free", side="left", position=0.14),
-                        yaxis4=dict(title=yaxis_labels[3], titlefont=dict(color="#26FF11"), tickfont=dict(color="#26FF11"), anchor="free", side="left", position=0.21))
-    
+                        yaxis =dict(title=yaxis_labels[0], titlefont=dict(color=trace_colors[list_of_channels[0]]), tickfont=dict(color=trace_colors[list_of_channels[0]]), anchor="free", side="left", position=0),
+                        yaxis2=dict(title=yaxis_labels[1], titlefont=dict(color=trace_colors[list_of_channels[1]]), tickfont=dict(color=trace_colors[list_of_channels[1]]), anchor="free", side="left", position=0.07),
+                        yaxis3=dict(title=yaxis_labels[2], titlefont=dict(color=trace_colors[list_of_channels[2]]), tickfont=dict(color=trace_colors[list_of_channels[2]]), anchor="free", side="left", position=0.14),
+                        yaxis4=dict(title=yaxis_labels[3], titlefont=dict(color=trace_colors[list_of_channels[3]]), tickfont=dict(color=trace_colors[list_of_channels[3]]), anchor="free", side="left", position=0.21))
     x_domain_list = [0, 0.07, 0.14, 0.21]
     fig.update_layout(xaxis=dict(domain=[x_domain_list[k-1], 1]))
     fig.update_layout(margin=dict(t=50))
        
-    input_list = ''.join(list_of_inputs_state).replace('input_','')
+    input_list = ''.join(list_of_inputs_state).replace('input_','_raw').replace('_calculated','').replace('in_','cal')
     file_name = f"{current_cell[2:10].replace('_', '')}_{fetch_sec_state}_{days_in_chart_state}_{input_list}.csv"
     df_merged.to_csv(work_dir + '/download/' + file_name, sep=',', index=False)
     link_to_file = 'download/' + file_name
 
     return fig, link_to_file, f'Download selected data: ' + file_name
 
+#---------------------
+@app.server.route('/download/<path:path>')
+def download(path):
+    """Serve a file from the upload directory."""
+    return send_file(f'download/{path}', mimetype='text/csv', attachment_filename=f'{path}', as_attachment=True)
 
-#--------Reload tables from db (tab_3)
+
+
+#--------Reload tables from db (db_browser)
 @app.callback(                                         
     dash.dependencies.Output('table', 'data'),
     [dash.dependencies.Input('button_reload_tables', 'n_clicks')])
