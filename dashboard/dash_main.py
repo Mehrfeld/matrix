@@ -270,19 +270,15 @@ def settings_content():
 
 
             dbc.Col(html.Div(
-                    dcc.Dropdown(options=models_list, value='model_1', style={'min-width': '330px', 'margin-left':0, 'font-weight': 'bold'}, clearable=False, searchable=False, id='models_list'))),
+                    dcc.Dropdown(options=models_list, value='model_1', style={'min-width': '330px', 'margin-left':0, 'font-weight': 'bold'}, clearable=False, searchable=False, id='models_list'),
+                    style={ 'border-right-style': 'double', 'border-right-color': 'Gainsboro', 'border-right-width': '4px',
+                            'border-left-style': 'double', 'border-left-color': 'Gainsboro', 'border-left-width': '4px'}
+                    )),
 
 
             dbc.Col(html.Div('Model Outputs'), width=4)
             ])], style={'min-height': '300px'}, className='mt-3')
        
-
-
-
-
-
-
-
 
 
     # Content of 'Analog Outputs'.
@@ -521,8 +517,8 @@ def current_cell(   selected_cell, button_load_curves_input, data, days_and_poin
     fig.update_layout(xaxis=dict(domain=[x_domain_list[k-1], 1]))
     fig.update_layout(margin=dict(t=50))
        
-    input_list = ''.join(list_of_inputs_state).replace('input_','_raw').replace('_calculated','').replace('in_','cal')
-    file_name = f"{current_cell[2:10].replace('_', '')}_{fetch_sec_state}_{days_in_chart_state}_{input_list}.csv"
+    input_list = ''.join(list_of_inputs_state).replace('input_','_raw').replace('_calculated','').replace('in_','_cal')
+    file_name = f"{current_cell[2:10].replace('_', '')}_{fetch_sec_state}_{days_in_chart_state}{input_list}.csv"
     df_merged.to_csv(work_dir + '/download/' + file_name, sep=',', index=False)
     link_to_file = 'download/' + file_name
 
@@ -851,16 +847,12 @@ def switch_tab(ac):
 
 
 #------------Update Config / db_broweser------------------------
-@app.callback(  Output("hidden-div-1", "children"),
-                [Input("dropdown_zime_zone", "value"),
-                 Input('days_and_points_in_chart', 'value'),
+
+@app.callback(   Output("hidden-div-1", "children"),     
+                [Input("dropdown_zime_zone", "value"), Input('days_and_points_in_chart', 'value'),
                  Input('channel_to_show_a', 'value'), Input('channel_to_show_b', 'value'), Input('channel_to_show_c', 'value'), Input('channel_to_show_d', 'value'),
-                 Input('list_of_outputs', 'value'),
                  Input('lines_markers', 'value')])
-def update_config(  time_zone, days_and_points_in_chart,
-                    channel_to_show_a, channel_to_show_b, channel_to_show_c, channel_to_show_d,
-                    list_of_outputs, lines_markers):
-    # global config
+def update_config(time_zone, days_and_points_in_chart, channel_to_show_a, channel_to_show_b, channel_to_show_c, channel_to_show_d, lines_markers):
 
     #--Settings
     config['db_browser']['local_time_zone'] = time_zone
@@ -871,12 +863,13 @@ def update_config(  time_zone, days_and_points_in_chart,
 
     config['db_browser']['list_of_inputs'] = channel_to_show_a +', '+ channel_to_show_b +', '+ channel_to_show_c +', '+ channel_to_show_d
     
-    list_of_outputs.sort(reverse=False)
-    config['db_browser']['list_of_outputs'] = ', '.join(list_of_outputs)
-
-
+    # list_of_outputs.sort(reverse=False)
+    # config['db_browser']['list_of_outputs'] = ', '.join(list_of_outputs)
 
     write_config()
+
+
+
 
 
 
