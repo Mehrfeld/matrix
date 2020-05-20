@@ -1,15 +1,24 @@
 import dill as pickle
 
-def model_xxx(temperature=20, value_1=1, value_2=1, value_3=1):
-
-    f = 3*temperature + value_1 + value_2 + value_3
 
 
-    return f
+
+
+def model( model_input_a=1, model_input_b=1, model_input_c=1, model_input_d=1,
+                model_input_e=1, model_input_f=1, model_input_g=1, model_input_h=1):
+
+
+    model_output_a = model_input_a + model_input_b
+    model_output_b = model_input_c + model_input_d
+    model_output_c = model_input_e + model_input_f
+    model_output_d = model_input_g + model_input_h
+
+
+    return model_output_a, model_output_b, model_output_c, model_output_d
     
 
 
 
-pickle.dump(model_xxx, open( "./models/model_0003.mdl", "wb" ) )
+pickle.dump(model, open( "./models/model_0001.mdl", "wb" ) )
 
 

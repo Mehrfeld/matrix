@@ -48,6 +48,47 @@ print (now_berlin.strftime(fmt))
 print (now_utc.strftime(fmt))
 
 
+channels =[ {'label': 'Empty', 'value': 'empty'},
+            {'label': f'Analog Input 1 ({config["AI"]["AI_1_description"].replace("%%", "%")})', 'value': 'in_1_calculated'},
+            {'label': f'Analog Input 2 ({config["AI"]["AI_2_description"].replace("%%", "%")})', 'value': 'in_2_calculated'},
+            {'label': f'Analog Input 3 ({config["AI"]["AI_3_description"].replace("%%", "%")})', 'value': 'in_3_calculated'},
+            {'label': f'Analog Input 4 ({config["AI"]["AI_4_description"].replace("%%", "%")})', 'value': 'in_4_calculated'},
+            {'label': f'Analog Input 5 ({config["AI"]["AI_5_description"].replace("%%", "%")})', 'value': 'in_5_calculated'},
+            {'label': f'Analog Input 6 ({config["AI"]["AI_6_description"].replace("%%", "%")})', 'value': 'in_6_calculated'},
+            {'label': f'Analog Input 7 ({config["AI"]["AI_7_description"].replace("%%", "%")})', 'value': 'in_7_calculated'},
+            {'label': f'Analog Input 8 ({config["AI"]["AI_8_description"].replace("%%", "%")})', 'value': 'in_8_calculated'},
+            {'label': 'Analog Input 1 (raw signal)', 'value': 'input_1'},
+            {'label': 'Analog Input 2 (raw signal)', 'value': 'input_2'},
+            {'label': 'Analog Input 3 (raw signal)', 'value': 'input_3'},
+            {'label': 'Analog Input 4 (raw signal)', 'value': 'input_4'},
+            {'label': 'Analog Input 5 (raw signal)', 'value': 'input_5'},
+            {'label': 'Analog Input 6 (raw signal)', 'value': 'input_6'},
+            {'label': 'Analog Input 7 (raw signal)', 'value': 'input_7'},
+            {'label': 'Analog Input 8 (raw signal)', 'value': 'input_8'} ]
+
+def channels_calс_inputs():
+    channels_calс_inputs = [ 
+                {'label': 'Empty', 'value': 'empty'},
+                {'label': f'Analog Input 1 ({config["AI"]["AI_1_description"].replace("%%", "%")})', 'value': 'in_1_calculated', 'disabled': False},
+                {'label': f'Analog Input 2 ({config["AI"]["AI_2_description"].replace("%%", "%")})', 'value': 'in_2_calculated', 'disabled': False},
+                {'label': f'Analog Input 3 ({config["AI"]["AI_3_description"].replace("%%", "%")})', 'value': 'in_3_calculated', 'disabled': False},
+                {'label': f'Analog Input 4 ({config["AI"]["AI_4_description"].replace("%%", "%")})', 'value': 'in_4_calculated', 'disabled': False},
+                {'label': f'Analog Input 5 ({config["AI"]["AI_5_description"].replace("%%", "%")})', 'value': 'in_5_calculated', 'disabled': False},
+                {'label': f'Analog Input 6 ({config["AI"]["AI_6_description"].replace("%%", "%")})', 'value': 'in_6_calculated', 'disabled': False},
+                {'label': f'Analog Input 7 ({config["AI"]["AI_7_description"].replace("%%", "%")})', 'value': 'in_7_calculated', 'disabled': False},
+                {'label': f'Analog Input 8 ({config["AI"]["AI_8_description"].replace("%%", "%")})', 'value': 'in_8_calculated', 'disabled': False} ]
+    return channels_calс_inputs
+
+def channels_output():
+    channels_output =[  
+                {'label': 'Empty', 'value': 'empty'},
+                {'label': 'Analog Output 1', 'value': 'output_1', 'disabled': False},
+                {'label': 'Analog Output 2', 'value': 'output_2', 'disabled': False},
+                {'label': 'Analog Output 3', 'value': 'output_3', 'disabled': False},
+                {'label': 'Analog Output 4', 'value': 'output_4', 'disabled': False}  ]
+    return channels_output
+
+
 #-----------tab_0_content (Cockpit)-------------------
 def tab0_content():
     global last_point_in_chart
@@ -55,89 +96,74 @@ def tab0_content():
     global fig
     current_time = datetime.datetime.utcnow()
     last_point_in_chart = current_time
+
     lock.acquire()
-    df_a = db_reader_a.get_data_generic('date_time_utc', ['input_1'], (current_time - datetime.timedelta(hours=1)).strftime("%Y_%m_%d %H:%M:%S"), current_time.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = '10')
+    df_a = db_reader_a.get_data_generic('date_time_utc', [config['cockpit']['data_to_show_a']], (current_time - datetime.timedelta(hours=1)).strftime("%Y_%m_%d %H:%M:%S"), current_time.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = '10')
     lock.release()
+
     df = df_a[0]
     fig = go.Figure(data=go.Scattergl(mode='lines+markers', line=dict(color='#1E90FF', width=4, dash='dot'), x=df[0], y=df[1])) # use Scattergl for large data
     fig['layout']['xaxis'].update(title='111', autorange=True)
     fig['layout']['yaxis'].update(title='111', range=[0, 25], autorange=True)
     fig['layout'].update(autosize = True)
+    fig.update_layout(margin=dict(t=50))
 
-    z1 = np.array([
-        [8.83,8.89,8.81,8.87,8.9,8.87],
-        [8.89,8.94,8.85,8.94,8.96,8.92],
-        [8.84,8.9,8.82,8.92,8.93,8.91],
-        [8.79,8.85,8.79,8.9,8.94,8.92],
-        [8.79,8.88,8.81,8.9,8.95,8.92],
-        [8.8,8.82,8.78,8.91,8.94,8.92],
-        [8.75,8.78,8.77,8.91,8.95,8.92],
-        [8.8,8.8,8.77,8.91,8.95,8.94],
-        [8.74,8.81,8.76,8.93,8.98,8.99],
-        [8.89,8.99,8.92,9.1,9.13,9.11],
-        [8.97,8.97,8.91,9.09,9.11,9.11],
-        [9.04,9.08,9.05,9.25,9.28,9.27],
-        [9,9.01,9,9.2,9.23,9.2],
-        [8.99,8.99,8.98,9.18,9.2,9.19],
-        [8.93,8.97,8.97,9.18,9.2,9.18]
-    ])
-    z2 = z1 + 1
-
-    fig_dataset = go.Figure(data=[
-        go.Surface(z=z1, showscale=False),
-        go.Surface(z=z2, showscale=False)
-    ])
 
     tab1_content = dbc.Card(
         dbc.CardBody(children=[
-            dbc.Row(no_gutters=True, children=[ dbc.Col(width=1, children=['----1-----']),
-                                                dbc.Col(width=6, children=[ dbc.Row(dcc.Graph(id='live-chart', figure=fig, config={"displaylogo": False,'modeBarButtonsToRemove': ['lasso2d']}, style={'height': 600, 'width': '100%'})),
-                                                                            dbc.Row(html.Div(id='input1_last_value', children=['-----!!!!-----'], style={'margin-left':100}))
-                                                                                    ]),   
-                                                dbc.Col(width=5, children=[dcc.Graph(id='fig_dataset', figure=fig_dataset, config={"displaylogo": False,'modeBarButtonsToRemove': ['lasso2d']}, style={'height': 600, 'width': '100%'})])
-                                                        ]),
-            dbc.Row(dbc.Col(html.Div("----------------------hello world!--------------------")), justify="center")
-                                ]                               
-                                                        
-                    ),className="mt-3")
+            dbc.Row(no_gutters=False, children=[ dbc.Col(width=4, children=[  
+
+                                                        html.Div('-----!!!!-------', id='input1_last_value', style={'height': '150px', 'margin-bottom':10, 'margin-top':50, 'border-style': 'double', 'border-color': 'Gainsboro', 'border-width': '4px'}),
+
+                                                        dcc.Dropdown(           options=channels[1:17], 
+                                                                                value=config['cockpit']['data_to_show_a'], style={'width': '300px', 'margin-left':0, 'margin-bottom':10}, clearable=False, searchable=False,
+                                                                                id='xxx'),
+                                                        dcc.Dropdown(           options=channels, 
+                                                                                value=config['cockpit']['data_to_show_b'], style={'width': '300px', 'margin-left':0, 'margin-bottom':10}, clearable=False, searchable=False,
+                                                                                id='yyy'),
+                                                        dcc.Dropdown(options=[ 
+                                                                                    {'label': 'One hour',   'value': '1_hour'},
+                                                                                    {'label': 'Three hours','value': '3_hours'},
+                                                                                    {'label': '12 hours',   'value': '12_hours'},
+                                                                                    {'label': '24 hours',   'value': '24_hours'},
+                                                                                    {'label': 'Three days', 'value': '3_days'}
+                                                                                    ], 
+                                                                                value='1_hour', style={'width': '300px', 'margin-left':0, 'margin-bottom':10}, clearable=False, searchable=False,
+                                                                                id='zzz')
+
+                                                                            ]),
+
+
+
+
+
+                                                dbc.Col(width=8, children=[ dbc.Row(dcc.Graph(id='live-chart', figure=fig, config={'displayModeBar': True, "displaylogo": False,'modeBarButtonsToRemove': ['lasso2d']}, style={'height': 600, 'width': '100%'})),
+                                                                            ])
+                                                ]),
+                                ]), className="mt-3")
 
     return tab1_content
+
+
 
 #-----------tab_1_content (Level 1)-------------------
 def tab1_content():
 
 
-    tab2_content = dbc.Card(
+    tab_content = dbc.Card(
         dbc.CardBody(
             [
-                html.P("This is tab 2!", style={'text-align':'left'}, className="card-text")
+                html.P("This is tab 2!", style={'text-align':'left'}, className="card-text"),
+                html.Div(html.Img(src="./assets/model_0000.jpg", style={'max-width':'100%'}))
             ]), className="mt-3",)
 
-
-    
-    return tab2_content
+    return tab_content
 
 #-----------db_browser_content (Level 2)--------------  
 
 def db_browser_content():
     inputs_to_show_list = [chunk.strip(None) for chunk in config['db_browser']['list_of_inputs'].split(',')]
-    channels =[ {'label': 'Empty', 'value': 'empty'},
-                {'label': f'Analog Input 1 ({config["AI"]["AI_1_description"].replace("%%", "%")})', 'value': 'in_1_calculated'},
-                {'label': f'Analog Input 2 ({config["AI"]["AI_2_description"].replace("%%", "%")})', 'value': 'in_2_calculated'},
-                {'label': f'Analog Input 3 ({config["AI"]["AI_3_description"].replace("%%", "%")})', 'value': 'in_3_calculated'},
-                {'label': f'Analog Input 4 ({config["AI"]["AI_4_description"].replace("%%", "%")})', 'value': 'in_4_calculated'},
-                {'label': f'Analog Input 5 ({config["AI"]["AI_5_description"].replace("%%", "%")})', 'value': 'in_5_calculated'},
-                {'label': f'Analog Input 6 ({config["AI"]["AI_6_description"].replace("%%", "%")})', 'value': 'in_6_calculated'},
-                {'label': f'Analog Input 7 ({config["AI"]["AI_7_description"].replace("%%", "%")})', 'value': 'in_7_calculated'},
-                {'label': f'Analog Input 8 ({config["AI"]["AI_8_description"].replace("%%", "%")})', 'value': 'in_8_calculated'},
-                {'label': 'Analog Input 1 (raw signal)', 'value': 'input_1'},
-                {'label': 'Analog Input 2 (raw signal)', 'value': 'input_2'},
-                {'label': 'Analog Input 3 (raw signal)', 'value': 'input_3'},
-                {'label': 'Analog Input 4 (raw signal)', 'value': 'input_4'},
-                {'label': 'Analog Input 5 (raw signal)', 'value': 'input_5'},
-                {'label': 'Analog Input 6 (raw signal)', 'value': 'input_6'},
-                {'label': 'Analog Input 7 (raw signal)', 'value': 'input_7'},
-                {'label': 'Analog Input 8 (raw signal)', 'value': 'input_8'} ]
+
     global fig
     browser_content = dbc.Card(
         dcc.Loading(dbc.CardBody(children = [
@@ -255,28 +281,46 @@ def settings_content():
 
     content_ai = [    html.Div(id='hidden-div-1', style={'display':'none'}), # used for callbacks without any output
                         html.Div(id='hidden-div-2', style={'display':'none'}), # used for callbacks without any output
-                        html.Div(id='hidden-div-3', style={'display':'none'}), # used for callbacks without any output
+                        html.Div(id='hidden-div-3', style={'display':'none'}),
+                        html.Div(id='hidden-div-4', style={'display':'none'}), # used for callbacks without any output
                         content_1]
 
     # Content of 'MATRIX'. 
     models_list =[ 
+            {'label': 'Not active', 'value': 'empty'},
             {'label': 'Model 1', 'value': 'model_1'},
             {'label': 'Model 2', 'value': 'model_2'},
             {'label': 'Model 3', 'value': 'model_3'},
             {'label': 'Model 4', 'value': 'model_4'},]
 
     content_mx = html.Div(children=[dbc.Row(children=[
-            dbc.Col(html.Div('Model Inputs'), width=4),
+            dbc.Col(html.Div(children=  [
+                    html.Div('Inputs', style={'font-weight': 'bold'}),
+                    dcc.Dropdown(options=channels_calс_inputs(), value=config['model']['model_input_a'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'60px'}, clearable=False, searchable=False, id='model_input_a'),
+                    dcc.Dropdown(options=channels_calс_inputs(), value=config['model']['model_input_b'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'20px'}, clearable=False, searchable=False, id='model_input_b'),
+                    dcc.Dropdown(options=channels_calс_inputs(), value=config['model']['model_input_c'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'20px'}, clearable=False, searchable=False, id='model_input_c'),
+                    dcc.Dropdown(options=channels_calс_inputs(), value=config['model']['model_input_d'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'20px'}, clearable=False, searchable=False, id='model_input_d'),
+                    dcc.Dropdown(options=channels_calс_inputs(), value=config['model']['model_input_e'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'20px'}, clearable=False, searchable=False, id='model_input_e'),
+                    dcc.Dropdown(options=channels_calс_inputs(), value=config['model']['model_input_f'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'20px'}, clearable=False, searchable=False, id='model_input_f'),
+                    dcc.Dropdown(options=channels_calс_inputs(), value=config['model']['model_input_g'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'20px'}, clearable=False, searchable=False, id='model_input_g'),
+                    dcc.Dropdown(options=channels_calс_inputs(), value=config['model']['model_input_h'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'20px'}, clearable=False, searchable=False, id='model_input_h'),
+                                        ]), width=3),
 
-
-            dbc.Col(html.Div(
-                    dcc.Dropdown(options=models_list, value='model_1', style={'min-width': '330px', 'margin-left':0, 'font-weight': 'bold'}, clearable=False, searchable=False, id='models_list'),
+            dbc.Col(html.Div(children=[ 
+                    dbc.Row(no_gutters=True, children=[
+                    dbc.Col(dcc.Dropdown(options=models_list, value='model_1', style={'width': '100%','padding-left':'10px', 'padding-right':'10px', 'font-weight': 'bold'}, clearable=False, searchable=False, id='models_list_a'))]),
+                    html.Img(src="./assets/model_0000.jpg", style={'max-width':'100%', 'margin-top':'5px', 'padding-left':'10px', 'padding-right':'10px'})],
                     style={ 'border-right-style': 'double', 'border-right-color': 'Gainsboro', 'border-right-width': '4px',
-                            'border-left-style': 'double', 'border-left-color': 'Gainsboro', 'border-left-width': '4px'}
-                    )),
+                            'border-left-style': 'double', 'border-left-color': 'Gainsboro', 'border-left-width': '4px'})),
 
+            dbc.Col(html.Div(children=  [
+                    html.Div('Outputs', style={'font-weight': 'bold'}),
+                    dcc.Dropdown(options=channels_output(), value=config['model']['model_output_a'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'60px'}, clearable=False, searchable=False, id='model_output_a'),
+                    dcc.Dropdown(options=channels_output(), value=config['model']['model_output_b'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'20px'}, clearable=False, searchable=False, id='model_output_b'),
+                    dcc.Dropdown(options=channels_output(), value=config['model']['model_output_c'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'20px'}, clearable=False, searchable=False, id='model_output_c'),
+                    dcc.Dropdown(options=channels_output(), value=config['model']['model_output_d'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'20px'}, clearable=False, searchable=False, id='model_output_d')
+                                        ]), width=3)
 
-            dbc.Col(html.Div('Model Outputs'), width=4)
             ])], style={'min-height': '300px'}, className='mt-3')
        
 
@@ -356,7 +400,7 @@ def serve_layout():
                                 dbc.Col(html.Div("One of three columns", className="mb-2"), width=4),
                                 dbc.Col(children=[html.H6(html.Div(id="date_time_notification", children = ["Date and Time"], className="pt-2 pb-2 pl-2 pr-2", style={'text-align': 'left'}))], style={ 'max-width': '170px', 'min-width': '170px'})
                                 ])], className="mb-2 ml-0 mr-0"),
-        dbc.Tabs(id='main_tabs', children=[
+        dbc.Tabs(id='main_tabs', active_tab='tab-0' , children=[   
             dbc.Tab(tab_id="tab-0", label='Cockpit', children=[tab0_content()], label_style=tab_label_style), 
             dbc.Tab(tab_id="tab-1", label='Level 1', children=[tab1_content()], label_style=tab_label_style),
             dbc.Tab(tab_id="db_browser", label='Level 2', children=[db_browser_content()], label_style=tab_label_style),
@@ -399,9 +443,11 @@ def update_graph_live(n, active_tab, figure_state, input1_last_value_state):
         global last_point_in_chart
         global df
         current_time = datetime.datetime.utcnow()
+
         lock.acquire()
-        df_append_a = db_reader_a.get_data_generic('date_time_utc', ['input_1'], (last_point_in_chart + datetime.timedelta(seconds=1)).strftime("%Y_%m_%d %H:%M:%S"), current_time.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = '10')
+        df_append_a = db_reader_a.get_data_generic('date_time_utc', [config['cockpit']['data_to_show_a']], (last_point_in_chart + datetime.timedelta(seconds=1)).strftime("%Y_%m_%d %H:%M:%S"), current_time.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = '10')
         lock.release()
+        
         df_append = df_append_a[0]
         last_average_value = str(np.average(df_append[1].values))
 
@@ -417,6 +463,7 @@ def update_graph_live(n, active_tab, figure_state, input1_last_value_state):
 
         last_point_in_chart = current_time
         fig = go.Figure(data=go.Scattergl(mode='lines+markers', line=dict(color='#1E90FF', width=4, dash='dot'), x=df_local_time, y=df[1]))
+        fig.update_layout(margin=dict(t=50))
         return fig, last_average_value
     else:
         return figure_state, input1_last_value_state
@@ -586,6 +633,109 @@ def update_units_8(units):
     return units, units
 
 
+
+#------Update Config / Analog Input Settings------------------------
+@app.callback(      Output('hidden-div-2', 'children'),
+                [   Input('save_AI_settings', 'n_clicks')], 
+                [   State("AI_1_units", "value"), State("AI_2_units", "value"), State("AI_3_units", "value"), State("AI_4_units", "value"), State("AI_5_units", "value"), State("AI_6_units", "value"), State("AI_7_units", "value"), State("AI_8_units", "value"),
+                    State('AI_1_mode', 'value'), State('AI_2_mode', 'value'), State('AI_3_mode', 'value'), State('AI_4_mode', 'value'), State('AI_5_mode', 'value'), State('AI_6_mode', 'value'), State('AI_7_mode', 'value'), State('AI_8_mode', 'value'),
+                    
+                    State('AI_1_source_low', 'value'), State('AI_1_target_low', 'value'), State('AI_1_source_high', 'value'), State('AI_1_target_high', 'value'),
+                    State('AI_2_source_low', 'value'), State('AI_2_target_low', 'value'), State('AI_2_source_high', 'value'), State('AI_2_target_high', 'value'),
+                    State('AI_3_source_low', 'value'), State('AI_3_target_low', 'value'), State('AI_3_source_high', 'value'), State('AI_3_target_high', 'value'),
+                    State('AI_4_source_low', 'value'), State('AI_4_target_low', 'value'), State('AI_4_source_high', 'value'), State('AI_4_target_high', 'value'),
+                    State('AI_5_source_low', 'value'), State('AI_5_target_low', 'value'), State('AI_5_source_high', 'value'), State('AI_5_target_high', 'value'),
+                    State('AI_6_source_low', 'value'), State('AI_6_target_low', 'value'), State('AI_6_source_high', 'value'), State('AI_6_target_high', 'value'),
+                    State('AI_7_source_low', 'value'), State('AI_7_target_low', 'value'), State('AI_7_source_high', 'value'), State('AI_7_target_high', 'value'),
+                    
+                    State('AI_8_source_low', 'value'), State('AI_8_target_low', 'value'), State('AI_8_source_high', 'value'), State('AI_8_target_high', 'value'),
+                    
+                    State('AI_1_description', 'value'), State('AI_2_description', 'value'), State('AI_3_description', 'value'), State('AI_4_description', 'value'), State('AI_5_description', 'value'), State('AI_6_description', 'value'), State('AI_7_description', 'value'), State('AI_8_description', 'value')])
+def update_config_AI(   AI_1_n_clicks, 
+                        AI_1_units, AI_2_units, AI_3_units, AI_4_units, AI_5_units, AI_6_units, AI_7_units, AI_8_units, 
+                        AI_1_mode, AI_2_mode, AI_3_mode, AI_4_mode, AI_5_mode, AI_6_mode, AI_7_mode, AI_8_mode,
+                        AI_1_source_low, AI_1_target_low, AI_1_source_high, AI_1_target_high,
+                        AI_2_source_low, AI_2_target_low, AI_2_source_high, AI_2_target_high,
+                        AI_3_source_low, AI_3_target_low, AI_3_source_high, AI_3_target_high,
+                        AI_4_source_low, AI_4_target_low, AI_4_source_high, AI_4_target_high,
+                        AI_5_source_low, AI_5_target_low, AI_5_source_high, AI_5_target_high,
+                        AI_6_source_low, AI_6_target_low, AI_6_source_high, AI_6_target_high,
+                        AI_7_source_low, AI_7_target_low, AI_7_source_high, AI_7_target_high,
+                        AI_8_source_low, AI_8_target_low, AI_8_source_high, AI_8_target_high,  
+                        AI_1_description, AI_2_description, AI_3_description, AI_4_description, AI_5_description, AI_6_description, AI_7_description, AI_8_description):
+
+     
+    config['AI']['AI_1_description'] = '...' if AI_1_description == '' else AI_1_description.replace('%', '%%')       # Configparser does not accept '%', use '%%' instead
+    config['AI']['AI_2_description'] = '...' if AI_2_description == '' else AI_2_description.replace('%', '%%')
+    config['AI']['AI_3_description'] = '...' if AI_3_description == '' else AI_3_description.replace('%', '%%')
+    config['AI']['AI_4_description'] = '...' if AI_4_description == '' else AI_4_description.replace('%', '%%')
+    config['AI']['AI_5_description'] = '...' if AI_5_description == '' else AI_5_description.replace('%', '%%')
+    config['AI']['AI_6_description'] = '...' if AI_6_description == '' else AI_6_description.replace('%', '%%')
+    config['AI']['AI_7_description'] = '...' if AI_7_description == '' else AI_7_description.replace('%', '%%')
+    config['AI']['AI_8_description'] = '...' if AI_8_description == '' else AI_8_description.replace('%', '%%')
+
+    config['AI']['AI_1_units'] = AI_1_units.replace('%', '%%')
+    config['AI']['AI_2_units'] = AI_2_units.replace('%', '%%')
+    config['AI']['AI_3_units'] = AI_3_units.replace('%', '%%')
+    config['AI']['AI_4_units'] = AI_4_units.replace('%', '%%')
+    config['AI']['AI_5_units'] = AI_5_units.replace('%', '%%')
+    config['AI']['AI_6_units'] = AI_6_units.replace('%', '%%')
+    config['AI']['AI_7_units'] = AI_7_units.replace('%', '%%')
+    config['AI']['AI_8_units'] = AI_8_units.replace('%', '%%')
+
+    config['AI']['AI_1_mode'] = AI_1_mode
+    config['AI']['AI_2_mode'] = AI_2_mode
+    config['AI']['AI_3_mode'] = AI_3_mode
+    config['AI']['AI_4_mode'] = AI_4_mode
+    config['AI']['AI_5_mode'] = AI_5_mode
+    config['AI']['AI_6_mode'] = AI_6_mode
+    config['AI']['AI_7_mode'] = AI_7_mode
+    config['AI']['AI_8_mode'] = AI_8_mode
+
+    config['AI']['AI_1_source_low'] = AI_1_source_low
+    config['AI']['AI_1_target_low'] = AI_1_target_low
+    config['AI']['AI_1_source_high'] = AI_1_source_high
+    config['AI']['AI_1_target_high'] = AI_1_target_high 
+
+    config['AI']['AI_2_source_low'] = AI_2_source_low
+    config['AI']['AI_2_target_low'] = AI_2_target_low
+    config['AI']['AI_2_source_high'] = AI_2_source_high
+    config['AI']['AI_2_target_high'] = AI_2_target_high 
+
+    config['AI']['AI_3_source_low'] = AI_3_source_low
+    config['AI']['AI_3_target_low'] = AI_3_target_low
+    config['AI']['AI_3_source_high'] = AI_3_source_high
+    config['AI']['AI_3_target_high'] = AI_3_target_high 
+
+    config['AI']['AI_4_source_low'] = AI_4_source_low
+    config['AI']['AI_4_target_low'] = AI_4_target_low
+    config['AI']['AI_4_source_high'] = AI_4_source_high
+    config['AI']['AI_4_target_high'] = AI_4_target_high 
+
+    config['AI']['AI_5_source_low'] = AI_5_source_low
+    config['AI']['AI_5_target_low'] = AI_5_target_low
+    config['AI']['AI_5_source_high'] = AI_5_source_high
+    config['AI']['AI_5_target_high'] = AI_5_target_high 
+
+    config['AI']['AI_6_source_low'] = AI_6_source_low
+    config['AI']['AI_6_target_low'] = AI_6_target_low
+    config['AI']['AI_6_source_high'] = AI_6_source_high
+    config['AI']['AI_6_target_high'] = AI_6_target_high 
+
+    config['AI']['AI_7_source_low'] = AI_7_source_low
+    config['AI']['AI_7_target_low'] = AI_7_target_low
+    config['AI']['AI_7_source_high'] = AI_7_source_high
+    config['AI']['AI_7_target_high'] = AI_7_target_high 
+
+    config['AI']['AI_8_source_low'] = AI_8_source_low
+    config['AI']['AI_8_target_low'] = AI_8_target_low
+    config['AI']['AI_8_source_high'] = AI_8_source_high
+    config['AI']['AI_8_target_high'] = AI_8_target_high 
+
+    write_config()
+
+
+
 #------Set Analog Inputs active/disabled--------
 color = 'AliceBlue'
 @app.callback(  [Output('AI_1_card', 'color'), Output('AI_1_card', 'style')],  # AI 1 active/disabled
@@ -684,6 +834,11 @@ def set_active_8(active_value):
         write_config()
         return ['', {'min-height': '250px'}]
 
+
+
+
+#------Update Config / Analog Output Settings------------------------
+
 #------Set Analog Outputs active/disabled--------
 @app.callback(  [Output('AO_1_card', 'color'), Output('AO_1_card', 'style')],  # AO 1 active/disabled
                 [Input('AO_1_active', 'value')])
@@ -733,107 +888,61 @@ def set_ao_active_4(active_value):
         write_config()
         return ['', {'min-height': '250px'}]
 
+#------Set Analog Outputs of the model - channel to be output to --------
+@app.callback(  [Output('model_output_a', 'options'), Output('model_output_b', 'options'), Output('model_output_c', 'options'), Output('model_output_d', 'options')], 
+                [Input('model_output_a', 'value'), Input('model_output_b', 'value'), Input('model_output_c', 'value'), Input('model_output_d', 'value'),
+                Input('model_input_a', 'value'), Input('model_input_b', 'value'), Input('model_input_c', 'value'), Input('model_input_d', 'value'),
+                Input('model_input_e', 'value'), Input('model_input_f', 'value'), Input('model_input_g', 'value'), Input('model_input_h', 'value') ])
+def set_model_output_list_a(value_a, value_b, value_c, value_d, 
+                            value_input_a, value_input_b, value_input_c, value_input_d, value_input_e, value_input_f, value_input_g, value_input_h):
+    config['model']['model_output_a'] = value_a
+    config['model']['model_output_b'] = value_b
+    config['model']['model_output_c'] = value_c
+    config['model']['model_output_d'] = value_d
 
+    config['model']['model_input_a'] = value_input_a
+    config['model']['model_input_b'] = value_input_b
+    config['model']['model_input_c'] = value_input_c
+    config['model']['model_input_d'] = value_input_d
+    config['model']['model_input_e'] = value_input_e
+    config['model']['model_input_f'] = value_input_f
+    config['model']['model_input_g'] = value_input_g
+    config['model']['model_input_h'] = value_input_h
 
-#------------Update Config / Analog Input Settings------------------------
-@app.callback(      Output("hidden-div-2", "children"),
-                [   Input('save_AI_settings', 'n_clicks')], 
-                [   State("AI_1_units", "value"), State("AI_2_units", "value"), State("AI_3_units", "value"), State("AI_4_units", "value"), State("AI_5_units", "value"), State("AI_6_units", "value"), State("AI_7_units", "value"), State("AI_8_units", "value"),
-                    State('AI_1_mode', 'value'), State('AI_2_mode', 'value'), State('AI_3_mode', 'value'), State('AI_4_mode', 'value'), State('AI_5_mode', 'value'), State('AI_6_mode', 'value'), State('AI_7_mode', 'value'), State('AI_8_mode', 'value'),
-                    
-                    State('AI_1_source_low', 'value'), State('AI_1_target_low', 'value'), State('AI_1_source_high', 'value'), State('AI_1_target_high', 'value'),
-                    State('AI_2_source_low', 'value'), State('AI_2_target_low', 'value'), State('AI_2_source_high', 'value'), State('AI_2_target_high', 'value'),
-                    State('AI_3_source_low', 'value'), State('AI_3_target_low', 'value'), State('AI_3_source_high', 'value'), State('AI_3_target_high', 'value'),
-                    State('AI_4_source_low', 'value'), State('AI_4_target_low', 'value'), State('AI_4_source_high', 'value'), State('AI_4_target_high', 'value'),
-                    State('AI_5_source_low', 'value'), State('AI_5_target_low', 'value'), State('AI_5_source_high', 'value'), State('AI_5_target_high', 'value'),
-                    State('AI_6_source_low', 'value'), State('AI_6_target_low', 'value'), State('AI_6_source_high', 'value'), State('AI_6_target_high', 'value'),
-                    State('AI_7_source_low', 'value'), State('AI_7_target_low', 'value'), State('AI_7_source_high', 'value'), State('AI_7_target_high', 'value'),
-                    
-                    State('AI_8_source_low', 'value'), State('AI_8_target_low', 'value'), State('AI_8_source_high', 'value'), State('AI_8_target_high', 'value'),
-                    
-                    State('AI_1_description', 'value'), State('AI_2_description', 'value'), State('AI_3_description', 'value'), State('AI_4_description', 'value'), State('AI_5_description', 'value'), State('AI_6_description', 'value'), State('AI_7_description', 'value'), State('AI_8_description', 'value')])
-def update_config_AI(   AI_1_n_clicks, 
-                        AI_1_units, AI_2_units, AI_3_units, AI_4_units, AI_5_units, AI_6_units, AI_7_units, AI_8_units, 
-                        AI_1_mode, AI_2_mode, AI_3_mode, AI_4_mode, AI_5_mode, AI_6_mode, AI_7_mode, AI_8_mode,
-                        AI_1_source_low, AI_1_target_low, AI_1_source_high, AI_1_target_high,
-                        AI_2_source_low, AI_2_target_low, AI_2_source_high, AI_2_target_high,
-                        AI_3_source_low, AI_3_target_low, AI_3_source_high, AI_3_target_high,
-                        AI_4_source_low, AI_4_target_low, AI_4_source_high, AI_4_target_high,
-                        AI_5_source_low, AI_5_target_low, AI_5_source_high, AI_5_target_high,
-                        AI_6_source_low, AI_6_target_low, AI_6_source_high, AI_6_target_high,
-                        AI_7_source_low, AI_7_target_low, AI_7_source_high, AI_7_target_high,
-                        AI_8_source_low, AI_8_target_low, AI_8_source_high, AI_8_target_high,  
-                        AI_1_description, AI_2_description, AI_3_description, AI_4_description, AI_5_description, AI_6_description, AI_7_description, AI_8_description):
-
-     
-    config['AI']['AI_1_description'] = '...' if AI_1_description == '' else AI_1_description.replace('%', '%%')       # Configparser does not accept '%', use '%%' instead
-    config['AI']['AI_2_description'] = '...' if AI_2_description == '' else AI_2_description.replace('%', '%%')
-    config['AI']['AI_3_description'] = '...' if AI_3_description == '' else AI_3_description.replace('%', '%%')
-    config['AI']['AI_4_description'] = '...' if AI_4_description == '' else AI_4_description.replace('%', '%%')
-    config['AI']['AI_5_description'] = '...' if AI_5_description == '' else AI_5_description.replace('%', '%%')
-    config['AI']['AI_6_description'] = '...' if AI_6_description == '' else AI_6_description.replace('%', '%%')
-    config['AI']['AI_7_description'] = '...' if AI_7_description == '' else AI_7_description.replace('%', '%%')
-    config['AI']['AI_8_description'] = '...' if AI_8_description == '' else AI_8_description.replace('%', '%%')
-
-    config['AI']['AI_1_units'] = AI_1_units.replace('%', '%%')
-    config['AI']['AI_2_units'] = AI_2_units.replace('%', '%%')
-    config['AI']['AI_3_units'] = AI_3_units.replace('%', '%%')
-    config['AI']['AI_4_units'] = AI_4_units.replace('%', '%%')
-    config['AI']['AI_5_units'] = AI_5_units.replace('%', '%%')
-    config['AI']['AI_6_units'] = AI_6_units.replace('%', '%%')
-    config['AI']['AI_7_units'] = AI_7_units.replace('%', '%%')
-    config['AI']['AI_8_units'] = AI_8_units.replace('%', '%%')
-
-    config['AI']['AI_1_mode'] = AI_1_mode
-    config['AI']['AI_2_mode'] = AI_2_mode
-    config['AI']['AI_3_mode'] = AI_3_mode
-    config['AI']['AI_4_mode'] = AI_4_mode
-    config['AI']['AI_5_mode'] = AI_5_mode
-    config['AI']['AI_6_mode'] = AI_6_mode
-    config['AI']['AI_7_mode'] = AI_7_mode
-    config['AI']['AI_8_mode'] = AI_8_mode
-
-    config['AI']['AI_1_source_low'] = AI_1_source_low
-    config['AI']['AI_1_target_low'] = AI_1_target_low
-    config['AI']['AI_1_source_high'] = AI_1_source_high
-    config['AI']['AI_1_target_high'] = AI_1_target_high 
-
-    config['AI']['AI_2_source_low'] = AI_2_source_low
-    config['AI']['AI_2_target_low'] = AI_2_target_low
-    config['AI']['AI_2_source_high'] = AI_2_source_high
-    config['AI']['AI_2_target_high'] = AI_2_target_high 
-
-    config['AI']['AI_3_source_low'] = AI_3_source_low
-    config['AI']['AI_3_target_low'] = AI_3_target_low
-    config['AI']['AI_3_source_high'] = AI_3_source_high
-    config['AI']['AI_3_target_high'] = AI_3_target_high 
-
-    config['AI']['AI_4_source_low'] = AI_4_source_low
-    config['AI']['AI_4_target_low'] = AI_4_target_low
-    config['AI']['AI_4_source_high'] = AI_4_source_high
-    config['AI']['AI_4_target_high'] = AI_4_target_high 
-
-    config['AI']['AI_5_source_low'] = AI_5_source_low
-    config['AI']['AI_5_target_low'] = AI_5_target_low
-    config['AI']['AI_5_source_high'] = AI_5_source_high
-    config['AI']['AI_5_target_high'] = AI_5_target_high 
-
-    config['AI']['AI_6_source_low'] = AI_6_source_low
-    config['AI']['AI_6_target_low'] = AI_6_target_low
-    config['AI']['AI_6_source_high'] = AI_6_source_high
-    config['AI']['AI_6_target_high'] = AI_6_target_high 
-
-    config['AI']['AI_7_source_low'] = AI_7_source_low
-    config['AI']['AI_7_target_low'] = AI_7_target_low
-    config['AI']['AI_7_source_high'] = AI_7_source_high
-    config['AI']['AI_7_target_high'] = AI_7_target_high 
-
-    config['AI']['AI_8_source_low'] = AI_8_source_low
-    config['AI']['AI_8_target_low'] = AI_8_target_low
-    config['AI']['AI_8_source_high'] = AI_8_source_high
-    config['AI']['AI_8_target_high'] = AI_8_target_high 
 
     write_config()
+
+    channels_output_a =[  
+            {'label': 'Empty', 'value': 'empty'},
+            {'label': 'Analog Output 1', 'value': 'output_1', 'disabled': True if value_b == 'output_1' or value_c == 'output_1' or value_d == 'output_1' else False},
+            {'label': 'Analog Output 2', 'value': 'output_2', 'disabled': True if value_b == 'output_2' or value_c == 'output_2' or value_d == 'output_2' else False},
+            {'label': 'Analog Output 3', 'value': 'output_3', 'disabled': True if value_b == 'output_3' or value_c == 'output_3' or value_d == 'output_3' else False},
+            {'label': 'Analog Output 4', 'value': 'output_4', 'disabled': True if value_b == 'output_4' or value_c == 'output_4' or value_d == 'output_4' else False}  ]
+    channels_output_b =[  
+            {'label': 'Empty', 'value': 'empty'},
+            {'label': 'Analog Output 1', 'value': 'output_1', 'disabled': True if value_a == 'output_1' or value_c == 'output_1' or value_d == 'output_1' else False},
+            {'label': 'Analog Output 2', 'value': 'output_2', 'disabled': True if value_a == 'output_2' or value_c == 'output_2' or value_d == 'output_2' else False},
+            {'label': 'Analog Output 3', 'value': 'output_3', 'disabled': True if value_a == 'output_3' or value_c == 'output_3' or value_d == 'output_3' else False},
+            {'label': 'Analog Output 4', 'value': 'output_4', 'disabled': True if value_a == 'output_4' or value_c == 'output_4' or value_d == 'output_4' else False}  ]
+    channels_output_c =[  
+            {'label': 'Empty', 'value': 'empty'},
+            {'label': 'Analog Output 1', 'value': 'output_1', 'disabled': True if value_b == 'output_1' or value_a == 'output_1' or value_d == 'output_1' else False},
+            {'label': 'Analog Output 2', 'value': 'output_2', 'disabled': True if value_b == 'output_2' or value_a == 'output_2' or value_d == 'output_2' else False},
+            {'label': 'Analog Output 3', 'value': 'output_3', 'disabled': True if value_b == 'output_3' or value_a == 'output_3' or value_d == 'output_3' else False},
+            {'label': 'Analog Output 4', 'value': 'output_4', 'disabled': True if value_b == 'output_4' or value_a == 'output_4' or value_d == 'output_4' else False}  ]       
+    channels_output_d =[  
+            {'label': 'Empty', 'value': 'empty'},
+            {'label': 'Analog Output 1', 'value': 'output_1', 'disabled': True if value_b == 'output_1' or value_c == 'output_1' or value_a == 'output_1' else False},
+            {'label': 'Analog Output 2', 'value': 'output_2', 'disabled': True if value_b == 'output_2' or value_c == 'output_2' or value_a == 'output_2' else False},
+            {'label': 'Analog Output 3', 'value': 'output_3', 'disabled': True if value_b == 'output_3' or value_c == 'output_3' or value_a == 'output_3' else False},
+            {'label': 'Analog Output 4', 'value': 'output_4', 'disabled': True if value_b == 'output_4' or value_c == 'output_4' or value_a == 'output_4' else False}  ]
+ 
+
+    
+    
+    return [channels_output_a, channels_output_b, channels_output_c, channels_output_d]
+
+
 
 
 #------Switch between Setting Tabs------------------------------------------

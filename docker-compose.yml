@@ -1,18 +1,19 @@
 version: '3'
 
 services: 
-    u_service_a:
-        build: ./uService_a
+    u_service_mx:
+        restart: always
+        build: ./uService_mx
         volumes: 
-            - ./uService_a:/usr/src/app
+            - ./uService_mx:/usr/src/app
         ports: 
             - 5000:5000
  
-    dash_main:
-        build: ./dashboard
-        volumes: 
-            - ./dashboard:/usr/src/app
-        ports: 
-            - 5001:8050
+    # dash_main:
+    #     build: ./dashboard
+    #     volumes: 
+    #         - ./dashboard:/usr/src/app
+    #     ports: 
+    #         - 5001:8050
 
 

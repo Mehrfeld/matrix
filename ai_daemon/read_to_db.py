@@ -93,6 +93,7 @@ def analog_input_reader():
     input_8 = round(random.uniform(5, 9), 3)
     
     list_of_inputs = [input_1, input_2, input_3, input_4, input_5, input_6, input_7, input_8]
+
     list_of_inputs_calculated = ['NULL', 'NULL', 'NULL', 'NULL', 'NULL', 'NULL', 'NULL', 'NULL']
     for n in range(1,9):
         if config['AI'][f'ai_{n}_active'] == 'True':                           # data to db
@@ -110,17 +111,23 @@ def analog_input_reader():
             list_of_inputs[n-1] = 'NULL'
             in_calculated = 'NULL'
         list_of_inputs_calculated[n-1] = in_calculated   
-    print(list_of_inputs)
-    print(list_of_inputs_calculated)
+
+    list_of_outputs = ['NULL', 3.5, 'NULL', 'NULL']
     
     input_1, input_2, input_3, input_4, input_5, input_6, input_7, input_8 = list_of_inputs
     in_1_calculated, in_2_calculated, in_3_calculated, in_4_calculated, in_5_calculated, in_6_calculated, in_7_calculated, in_8_calculated = list_of_inputs_calculated
+    output_1, output_2, output_3, output_4 = list_of_outputs
+
+    print(list_of_inputs)
+    print(list_of_inputs_calculated)
+    print(list_of_outputs)
 
 
     comments = '...'                                                    # data to db
 
     current_time = datetime.datetime.utcnow()
     timestamp = current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-7]      # data to db
+    
     global current_table
     global writing_to_db_flag
     if current_table != current_time.strftime("%Y_%m_%d"):
@@ -133,6 +140,7 @@ def analog_input_reader():
                             temperature_1 FLOAT, temperature_2 FLOAT,\
                             input_1 FLOAT, input_2 FLOAT, input_3 FLOAT, input_4 FLOAT, input_5 FLOAT, input_6 FLOAT, input_7 FLOAT, input_8 FLOAT,\
                             in_1_calculated FLOAT, in_2_calculated FLOAT, in_3_calculated FLOAT, in_4_calculated FLOAT, in_5_calculated FLOAT, in_6_calculated FLOAT, in_7_calculated FLOAT, in_8_calculated FLOAT,\
+                            output_1 FLOAT, output_2 FLOAT, output_3 FLOAT, output_4 FLOAT,\
                             comments TEXT, PRIMARY KEY (id))".format(current_table))
             mydb.commit()
             writing_to_db_flag = True
@@ -147,11 +155,14 @@ def analog_input_reader():
             "INSERT INTO {} (   date_time_utc, temperature_1, temperature_2, \
                                 input_1, input_2, input_3, input_4, input_5, input_6, input_7, input_8,\
                                 in_1_calculated, in_2_calculated, in_3_calculated, in_4_calculated, in_5_calculated, in_6_calculated, in_7_calculated, in_8_calculated,\
+                                output_1, output_2, output_3, output_4,\
                                 comments)\
-            VALUES ('{}', {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, '{}')".format(current_table, timestamp, temperature_1, temperature_2, 
-                                                                                input_1, input_2, input_3, input_4, input_5, input_6, input_7, input_8, 
-                                                                                in_1_calculated, in_2_calculated, in_3_calculated, in_4_calculated, in_5_calculated, in_6_calculated, in_7_calculated, in_8_calculated,
-                                                                                comments))
+            VALUES ('{}', {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, '{}')".format(current_table,
+                                                timestamp, temperature_1, temperature_2, 
+                                                input_1, input_2, input_3, input_4, input_5, input_6, input_7, input_8, 
+                                                in_1_calculated, in_2_calculated, in_3_calculated, in_4_calculated, in_5_calculated, in_6_calculated, in_7_calculated, in_8_calculated,
+                                                output_1, output_2, output_3, output_4,
+                                                comments))
         mydb.commit()
         writing_to_db_flag = True
         #print('\r', timestamp, '***', temperature, '***', input_1,
@@ -161,7 +172,11 @@ def analog_input_reader():
 
 WAIT_FOR_RELOAD_SECONDS = 10
 def reload_config():
-    threading.Timer(WAIT_FOR_RELOAD_SECONDS, reload_config).start()
+    global exit_flag
+    if exit_flag == False:
+        threading.Timer(WAIT_FOR_RELOAD_SECONDS, reload_config).start()
+    else:
+        pass  
     config.read('../dashboard/matrix.ini')
     print('Reload config ok')
 
