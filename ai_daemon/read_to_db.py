@@ -14,6 +14,14 @@ import logging
 import random
 from dash_classes import RandomWalker
 
+import requests
+
+from flask import Flask
+from flask_restful import reqparse, abort, Api, Resource
+
+app = Flask(__name__)
+api = Api(app)
+
 
 print('My PID is:', os.getpid())
 exit_flag = False  # SIGTERM signal from OS is received if True
@@ -39,7 +47,8 @@ def sigterm_handler(signal, frame):
     exit_flag = True
     # save the state here or do whatever you want
     print('\n', 'bye bye...')
-    time.sleep(0)
+    time.sleep(5)
+    sys.exit(0)
 
 signal.signal(signal.SIGTERM, sigterm_handler)
 
@@ -75,6 +84,7 @@ WAIT_SECONDS = 1                                                        # sampli
 def analog_input_reader():
     global exit_flag
     global config_messages
+    global last_measurements
     if exit_flag == False:
         threading.Timer(WAIT_SECONDS, analog_input_reader).start()
     else:
@@ -112,15 +122,38 @@ def analog_input_reader():
             in_calculated = 'NULL'
         list_of_inputs_calculated[n-1] = in_calculated   
 
-    list_of_outputs = ['NULL', 3.5, 'NULL', 'NULL']
+  
+
+    url = 'http://localhost:5000/calculate'
+    json = {"inputs":{"model_input_a":"20", "model_input_b":"1498.3", "model_input_c":"8",  "model_input_d":"NULL" }, "dataset_id":"model_0000"}
+    try: 
+        x = requests.post(url, json = json)
+        list_of_model_outputs = x.json()
+    except: 
+        list_of_model_outputs = ['NULL', 'NULL', 'NULL', 'NULL']
+        print ('Error: Check if MATRIX daemon is running.')
+
+
     
     input_1, input_2, input_3, input_4, input_5, input_6, input_7, input_8 = list_of_inputs
     in_1_calculated, in_2_calculated, in_3_calculated, in_4_calculated, in_5_calculated, in_6_calculated, in_7_calculated, in_8_calculated = list_of_inputs_calculated
-    output_1, output_2, output_3, output_4 = list_of_outputs
+
+    j = [config['model']['model_output_a'], config['model']['model_output_b'], config['model']['model_output_c'],config['model']['model_output_d']]
+    try: output_1 = list_of_model_outputs[j.index('output_1')] 
+    except: output_1 = 'NULL'
+    try: output_2 = list_of_model_outputs[j.index('output_2')] 
+    except: output_2 = 'NULL'
+    try: output_3 = list_of_model_outputs[j.index('output_3')] 
+    except: output_3 = 'NULL' 
+    try: output_4 = list_of_model_outputs[j.index('output_4')] 
+    except: output_4 = 'NULL' 
 
     print(list_of_inputs)
     print(list_of_inputs_calculated)
-    print(list_of_outputs)
+    print(output_1, output_2, output_3, output_4)
+    print('----')
+
+    last_measurements = list_of_inputs + list_of_inputs_calculated + [output_1, output_2, output_3, output_4]
 
 
     comments = '...'                                                    # data to db
@@ -180,6 +213,18 @@ def reload_config():
     config.read('../dashboard/matrix.ini')
     print('Reload config ok')
 
-
 analog_input_reader() 
 reload_config()
+
+
+class get_last_measurement(Resource):
+    def get(self):
+        global last_measurements
+        return last_measurements
+
+
+api.add_resource(get_last_measurement, '/get_last_measurement')
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5001)
+

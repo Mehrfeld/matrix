@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import datetime
 import time
-
+import requests
 from pytz import timezone
 import pytz
 
@@ -26,7 +26,7 @@ from db_connector import DB_Reader
 lock = Lock() 
 
 db_reader_a = DB_Reader()
-#db_reader_b = DB_Reader()
+db_reader_b = DB_Reader()
 
 work_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -47,24 +47,29 @@ now_berlin = now_utc.astimezone(timezone('Europe/Berlin'))
 print (now_berlin.strftime(fmt))
 print (now_utc.strftime(fmt))
 
-
-channels =[ {'label': 'Empty', 'value': 'empty'},
-            {'label': f'Analog Input 1 ({config["AI"]["AI_1_description"].replace("%%", "%")})', 'value': 'in_1_calculated'},
-            {'label': f'Analog Input 2 ({config["AI"]["AI_2_description"].replace("%%", "%")})', 'value': 'in_2_calculated'},
-            {'label': f'Analog Input 3 ({config["AI"]["AI_3_description"].replace("%%", "%")})', 'value': 'in_3_calculated'},
-            {'label': f'Analog Input 4 ({config["AI"]["AI_4_description"].replace("%%", "%")})', 'value': 'in_4_calculated'},
-            {'label': f'Analog Input 5 ({config["AI"]["AI_5_description"].replace("%%", "%")})', 'value': 'in_5_calculated'},
-            {'label': f'Analog Input 6 ({config["AI"]["AI_6_description"].replace("%%", "%")})', 'value': 'in_6_calculated'},
-            {'label': f'Analog Input 7 ({config["AI"]["AI_7_description"].replace("%%", "%")})', 'value': 'in_7_calculated'},
-            {'label': f'Analog Input 8 ({config["AI"]["AI_8_description"].replace("%%", "%")})', 'value': 'in_8_calculated'},
-            {'label': 'Analog Input 1 (raw signal)', 'value': 'input_1'},
-            {'label': 'Analog Input 2 (raw signal)', 'value': 'input_2'},
-            {'label': 'Analog Input 3 (raw signal)', 'value': 'input_3'},
-            {'label': 'Analog Input 4 (raw signal)', 'value': 'input_4'},
-            {'label': 'Analog Input 5 (raw signal)', 'value': 'input_5'},
-            {'label': 'Analog Input 6 (raw signal)', 'value': 'input_6'},
-            {'label': 'Analog Input 7 (raw signal)', 'value': 'input_7'},
-            {'label': 'Analog Input 8 (raw signal)', 'value': 'input_8'} ]
+def channels():
+    channels =[ {'label': 'Empty', 'value': 'empty'},
+                {'label': f'Analog Input 1 ({config["AI"]["AI_1_description"].replace("%%", "%")})', 'value': 'in_1_calculated'},
+                {'label': f'Analog Input 2 ({config["AI"]["AI_2_description"].replace("%%", "%")})', 'value': 'in_2_calculated'},
+                {'label': f'Analog Input 3 ({config["AI"]["AI_3_description"].replace("%%", "%")})', 'value': 'in_3_calculated'},
+                {'label': f'Analog Input 4 ({config["AI"]["AI_4_description"].replace("%%", "%")})', 'value': 'in_4_calculated'},
+                {'label': f'Analog Input 5 ({config["AI"]["AI_5_description"].replace("%%", "%")})', 'value': 'in_5_calculated'},
+                {'label': f'Analog Input 6 ({config["AI"]["AI_6_description"].replace("%%", "%")})', 'value': 'in_6_calculated'},
+                {'label': f'Analog Input 7 ({config["AI"]["AI_7_description"].replace("%%", "%")})', 'value': 'in_7_calculated'},
+                {'label': f'Analog Input 8 ({config["AI"]["AI_8_description"].replace("%%", "%")})', 'value': 'in_8_calculated'},
+                {'label': 'Analog Input 1 (raw signal)', 'value': 'input_1'},
+                {'label': 'Analog Input 2 (raw signal)', 'value': 'input_2'},
+                {'label': 'Analog Input 3 (raw signal)', 'value': 'input_3'},
+                {'label': 'Analog Input 4 (raw signal)', 'value': 'input_4'},
+                {'label': 'Analog Input 5 (raw signal)', 'value': 'input_5'},
+                {'label': 'Analog Input 6 (raw signal)', 'value': 'input_6'},
+                {'label': 'Analog Input 7 (raw signal)', 'value': 'input_7'},
+                {'label': 'Analog Input 8 (raw signal)', 'value': 'input_8'},
+                {'label': f'Analog Output 1 ({config["AO"]["ao_1_description"].replace("%%", "%")})', 'value': 'output_1'},
+                {'label': f'Analog Output 2 ({config["AO"]["ao_2_description"].replace("%%", "%")})', 'value': 'output_2'},
+                {'label': f'Analog Output 3 ({config["AO"]["ao_3_description"].replace("%%", "%")})', 'value': 'output_3'},
+                {'label': f'Analog Output 4 ({config["AO"]["ao_4_description"].replace("%%", "%")})', 'value': 'output_4'} ]
+    return channels
 
 def channels_calс_inputs():
     channels_calс_inputs = [ 
@@ -81,7 +86,7 @@ def channels_calс_inputs():
 
 def channels_output():
     channels_output =[  
-                {'label': 'Empty', 'value': 'empty'},
+                {'label': 'Not active', 'value': 'empty'},
                 {'label': 'Analog Output 1', 'value': 'output_1', 'disabled': False},
                 {'label': 'Analog Output 2', 'value': 'output_2', 'disabled': False},
                 {'label': 'Analog Output 3', 'value': 'output_3', 'disabled': False},
@@ -91,14 +96,18 @@ def channels_output():
 
 #-----------tab_0_content (Cockpit)-------------------
 def tab0_content():
-    global last_point_in_chart
+    global time_of_last_point_in_chart
     global df
     global fig
+    global data_to_show_a, data_to_show_b
+    data_to_show_a = config['cockpit']['data_to_show_a']
+    data_to_show_b = config['cockpit']['data_to_show_b']
+
     current_time = datetime.datetime.utcnow()
-    last_point_in_chart = current_time
+    time_of_last_point_in_chart = current_time
 
     lock.acquire()
-    df_a = db_reader_a.get_data_generic('date_time_utc', [config['cockpit']['data_to_show_a']], (current_time - datetime.timedelta(hours=1)).strftime("%Y_%m_%d %H:%M:%S"), current_time.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = '10')
+    df_a = db_reader_b.get_data_generic('date_time_utc', [config['cockpit']['data_to_show_a']], (current_time - datetime.timedelta(hours=1)).strftime("%Y_%m_%d %H:%M:%S"), current_time.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = '1')
     lock.release()
 
     df = df_a[0]
@@ -109,40 +118,47 @@ def tab0_content():
     fig.update_layout(margin=dict(t=50))
 
 
-    tab1_content = dbc.Card(
+    tab0_content = dbc.Card(html.Div(children=[
         dbc.CardBody(children=[
-            dbc.Row(no_gutters=False, children=[ dbc.Col(width=4, children=[  
+            dbc.Row(no_gutters=False, children=[ 
+                dbc.Col(width=4, style={'text-align':'left'}, children=[  
 
-                                                        html.Div('-----!!!!-------', id='input1_last_value', style={'height': '150px', 'margin-bottom':10, 'margin-top':50, 'border-style': 'double', 'border-color': 'Gainsboro', 'border-width': '4px'}),
+                        html.Div('00,00', id='last_value_to_indicate_a', style={'height': '80px', 'margin-bottom':10, 'margin-top':50, 'border-style': 'double', 'border-color': 'Gainsboro', 'border-width': '4px'}),
+                        html.Div(dcc.Slider(id='slider_a', min=0, max=100, step=0.5, value=10, included=False, disabled=False, marks={
+                                    0: {'label': '0 °C', 'style': {'color': '#77b0b1', 'font-size':'large', 'white-space': 'nowrap', 'font-weight':'bold'}},
+                                    100: {'label': '2000 °C', 'style': {'color': '#f50', 'font-size':'large', 'white-space': 'nowrap', 'font-weight':'bold'}}}  ), style={'pointer-events':'none'}),
+                        html.Div('00,00', id='last_value_to_indicate_b', style={'height': '80px', 'margin-bottom':10, 'margin-top':20, 'border-style': 'double', 'border-color': 'Gainsboro', 'border-width': '4px'}),  #'display':'table-cell','vertical-align':'middle', 'width':'300px',
+                        dcc.Slider(id='slider_b', min=0, max=100, step=0.5, value=10, included=False, disabled=False, marks={
+                                    0: {'label': '0 °C', 'style': {'color': '#77b0b1', 'font-size':'large', 'white-space': 'nowrap', 'font-weight':'bold'}},
+                                    100: {'label': '2000 °C', 'style': {'color': '#f50', 'font-size':'large', 'white-space': 'nowrap', 'font-weight':'bold'}}}   ),
+                        html.Div('Channel A:', style={'margin-top':25}),
+                        dcc.Dropdown(           options=channels()[1:21], 
+                                                value=config['cockpit']['data_to_show_a'], style={'width': '100%', 'margin-left':0, 'margin-bottom':10}, clearable=False, searchable=False,
+                                                id='channel_to_monitor_a'),
+                        html.Div('Channel B:'),
+                        dcc.Dropdown(           options=channels(), 
+                                                value=config['cockpit']['data_to_show_b'], style={'width': '100%', 'margin-left':0, 'margin-bottom':10}, clearable=False, searchable=False,
+                                                id='channel_to_monitor_b'),
+                        html.Div('Period of time to monitor:'),
+                        dcc.Dropdown(options=[ 
+                                                    {'label': 'One hour',   'value': '1_hour'},
+                                                    {'label': 'Three hours','value': '3_hours'},
+                                                    {'label': '12 hours',   'value': '12_hours'},
+                                                    {'label': '24 hours',   'value': '24_hours'},
+                                                    {'label': 'Three days', 'value': '3_days'}
+                                                    ], 
+                                                value='1_hour', style={'width': '100%', 'margin-left':0, 'margin-bottom':10}, clearable=False, searchable=False,
+                                                id='zzz')
 
-                                                        dcc.Dropdown(           options=channels[1:17], 
-                                                                                value=config['cockpit']['data_to_show_a'], style={'width': '300px', 'margin-left':0, 'margin-bottom':10}, clearable=False, searchable=False,
-                                                                                id='xxx'),
-                                                        dcc.Dropdown(           options=channels, 
-                                                                                value=config['cockpit']['data_to_show_b'], style={'width': '300px', 'margin-left':0, 'margin-bottom':10}, clearable=False, searchable=False,
-                                                                                id='yyy'),
-                                                        dcc.Dropdown(options=[ 
-                                                                                    {'label': 'One hour',   'value': '1_hour'},
-                                                                                    {'label': 'Three hours','value': '3_hours'},
-                                                                                    {'label': '12 hours',   'value': '12_hours'},
-                                                                                    {'label': '24 hours',   'value': '24_hours'},
-                                                                                    {'label': 'Three days', 'value': '3_days'}
-                                                                                    ], 
-                                                                                value='1_hour', style={'width': '300px', 'margin-left':0, 'margin-bottom':10}, clearable=False, searchable=False,
-                                                                                id='zzz')
+                                            ]),
 
-                                                                            ]),
-
-
-
-
-
-                                                dbc.Col(width=8, children=[ dbc.Row(dcc.Graph(id='live-chart', figure=fig, config={'displayModeBar': True, "displaylogo": False,'modeBarButtonsToRemove': ['lasso2d']}, style={'height': 600, 'width': '100%'})),
-                                                                            ])
+                dbc.Col(width=8, children=[ dbc.Row(dcc.Graph(id='live-chart', figure=fig, config={'displayModeBar': True, "displaylogo": False,'modeBarButtonsToRemove': ['lasso2d']}, style={'height': 600, 'width': '100%'}))])
                                                 ]),
-                                ]), className="mt-3")
+                                ]),
+        html.Div('PRODUCT NAME', style={'font-weight':'bold','font-size':'x-large', 'position': 'absolute', 'left':25, 'top':13})
+                                ], style={'position': 'relative', 'display': 'inline-block'}), className="mt-3")
 
-    return tab1_content
+    return tab0_content
 
 
 
@@ -188,21 +204,21 @@ def db_browser_content():
                             dbc.Col(html.Div(style={'margin-left':16}, children = [
                                             dbc.Row(children=[
                                                 dbc.Col(children=[                                                    
-                                                    dbc.Row([html.Div(  dcc.Dropdown(options=channels[1:17], 
+                                                    dbc.Row([html.Div(  dcc.Dropdown(options=channels()[1:21], 
                                                                                 value=inputs_to_show_list[0], 
                                                                                 style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False,
                                                                                 id='channel_to_show_a'), style={'margin-left': 0, 'margin-right': 10}),
-                                                                        dcc.Dropdown(options=channels, 
+                                                                        dcc.Dropdown(options=channels(), 
                                                                                 value=inputs_to_show_list[1],
                                                                                 style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False, 
                                                                                 id='channel_to_show_b')], className='mb-2'),                                                    
                                                     
                                                     
-                                                    dbc.Row([html.Div(  dcc.Dropdown(options=channels, 
+                                                    dbc.Row([html.Div(  dcc.Dropdown(options=channels(), 
                                                                                 value=inputs_to_show_list[2], 
                                                                                 style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False,
                                                                                 id='channel_to_show_c'), style={'margin-left': 0, 'margin-right': 10}),
-                                                                        dcc.Dropdown(options=channels, 
+                                                                        dcc.Dropdown(options=channels(), 
                                                                                 value=inputs_to_show_list[3],
                                                                                 style={'min-width': '330px', 'margin-left':0}, clearable=False, searchable=False, 
                                                                                 id='channel_to_show_d')], className='mb-2'),                                          
@@ -249,7 +265,7 @@ def settings_content():
                                     dbc.Row(no_gutters=True, children=[
                                     dbc.Col(dbc.Input(id=f"AI_{n}_description", value=config['AI'][f'AI_{n}_description'].replace('%%', '%'), placeholder=" ... ", type="text",  className="mb-2"), width=9),
                                     dbc.Col(dcc.Checklist(options=[{'label': f' AI {n}', 'value': 'True'}], value=value_active, id=f'AI_{n}_active'), style={'text-align': 'right', 'font-weight': 'bold'}, width=3)]),
-
+  
 
                                     dbc.Row(children=[  dbc.Col(dbc.Input(id=f"AI_{n}_source_low", placeholder="...", value=config['AI'][f'AI_{n}_source_low'], inputMode='numeric', type='text'), width=3), # AI source low
                                                         dbc.Col(html.Div('mA', className="ml-2 mt-3"), width=2),       
@@ -267,6 +283,7 @@ def settings_content():
                                                             {'label': '4...20 mA', 'value': '4...20'},
                                                             {'label': '0...10 V', 'value': '0...10'}], 
                                                             value=config['AI'][f'AI_{n}_mode'], # AI mode
+                                                            disabled=True,
                                                             style={'min-width': '0', 'margin-left':0}, className="mb-2 mt-2", clearable=False, searchable=False, id=f'AI_{n}_mode')), width=7),]),
 
                                     dbc.Row(no_gutters=True, children=[
@@ -314,17 +331,32 @@ def settings_content():
                             'border-left-style': 'double', 'border-left-color': 'Gainsboro', 'border-left-width': '4px'})),
 
             dbc.Col(html.Div(children=  [
-                    html.Div('Outputs', style={'font-weight': 'bold'}),
-                    dcc.Dropdown(options=channels_output(), value=config['model']['model_output_a'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'60px'}, clearable=False, searchable=False, id='model_output_a'),
-                    dcc.Dropdown(options=channels_output(), value=config['model']['model_output_b'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'20px'}, clearable=False, searchable=False, id='model_output_b'),
-                    dcc.Dropdown(options=channels_output(), value=config['model']['model_output_c'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'20px'}, clearable=False, searchable=False, id='model_output_c'),
-                    dcc.Dropdown(options=channels_output(), value=config['model']['model_output_d'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'20px'}, clearable=False, searchable=False, id='model_output_d')
-                                        ]), width=3)
+                html.Div('Outputs', style={'font-weight': 'bold'}),
+                dcc.Dropdown(options=channels_output(), value=config['model']['model_output_a'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'60px'}, clearable=False, searchable=False, id='model_output_a'),
+                dbc.Row(no_gutters=True, style={'margin-top':'5px'},children=[
+                    dbc.Col(dbc.Input(id="AO_1_description_", value=config['AO']['AO_1_description'].replace('%%', '%'), placeholder="Enter channel name ... ", type="text",  className=""), style={'padding-right':'5px'}, width=8),
+                    dbc.Col(dbc.Input(id="AO_1_units_", placeholder="Enter units", value=config['AO'][f'AO_1_units'].replace('%%', '%'), type="text"), style={'text-align': 'right', 'font-weight': 'bold'}, width=4)]),
+
+                dcc.Dropdown(options=channels_output(), value=config['model']['model_output_b'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'20px'}, clearable=False, searchable=False, id='model_output_b'),
+                dbc.Row(no_gutters=True, style={'margin-top':'5px'},children=[
+                    dbc.Col(dbc.Input(id="AO_2_description_", value=config['AO']['AO_2_description'].replace('%%', '%'), placeholder="Enter channel name ... ", type="text",  className=""), style={'padding-right':'5px'}, width=8),
+                    dbc.Col(dbc.Input(id="AO_2_units_", placeholder="Enter units", value=config['AO'][f'AO_2_units'].replace('%%', '%'), type="text"), style={'text-align': 'right', 'font-weight': 'bold'}, width=4)]),
+
+                dcc.Dropdown(options=channels_output(), value=config['model']['model_output_c'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'20px'}, clearable=False, searchable=False, id='model_output_c'),
+                dbc.Row(no_gutters=True, style={'margin-top':'5px'},children=[
+                    dbc.Col(dbc.Input(id="AO_3_description_", value=config['AO']['AO_3_description'].replace('%%', '%'), placeholder="Enter channel name ... ", type="text",  className=""), style={'padding-right':'5px'}, width=8),
+                    dbc.Col(dbc.Input(id="AO_3_units_", placeholder="Enter units", value=config['AO'][f'AO_3_units'].replace('%%', '%'), type="text"), style={'text-align': 'right', 'font-weight': 'bold'}, width=4)]),
+
+                dcc.Dropdown(options=channels_output(), value=config['model']['model_output_d'], style={'padding-left':'0px', 'padding-right':'0px', 'font-weight': 'normal', 'margin-top':'20px'}, clearable=False, searchable=False, id='model_output_d'),
+                dbc.Row(no_gutters=True, style={'margin-top':'5px'},children=[
+                    dbc.Col(dbc.Input(id="AO_4_description_", value=config['AO']['AO_4_description'].replace('%%', '%'), placeholder="Enter channel name ... ", type="text",  className=""), style={'padding-right':'5px'}, width=8),
+                    dbc.Col(dbc.Input(id="AO_4_units_", placeholder="Enter units", value=config['AO'][f'AO_4_units'].replace('%%', '%'), type="text"), style={'text-align': 'right', 'font-weight': 'bold'}, width=4)]),
+                dbc.Button(className="", id='save_AO_settings_', children=["SAVE ANALOG OUTPUT SETTINGS"], color="primary", outline=True,  size="sm", style={'min-width': '100%', 'margin-top':'20px'})
+
+                    ]), width=3)
 
             ])], style={'min-height': '300px'}, className='mt-3')
        
-
-
     # Content of 'Analog Outputs'.
     def ao_n_settings_block(n):
         if config['AO'][f'ao_{n}_active']=='True':
@@ -335,32 +367,35 @@ def settings_content():
                     dbc.Card(color='light', outline=True, inverse=False, id=f'AO_{n}_card', children=[
 
                         dbc.Row(no_gutters=True, children=[
-                        dbc.Col(dbc.Input(id=f"AO_{n}_description", value=config['AO'][f'AO_{n}_description'].replace('%%', '%'), placeholder="Enter channel name ... ", type="text",  className="mb-2"), width=9),
-                        dbc.Col(dcc.Checklist(options=[{'label': f' AO {n}', 'value': 'True'}], value=value_active, id=f'AO_{n}_active'), style={'text-align': 'right', 'font-weight': 'bold'}, width=3)]),
+                            dbc.Col(dbc.Input(id=f"AO_{n}_description", value=config['AO'][f'AO_{n}_description'].replace('%%', '%'), placeholder="Enter channel name ... ", type="text", disabled=True,  className="mb-2"), width=9),
+                            dbc.Col(dcc.Checklist(options=[{'label': f' AO {n}', 'value': 'True', 'disabled':True}], value=value_active, id=f'AO_{n}_active'), style={'text-align': 'right', 'font-weight': 'bold'}, width=3)]),
 
-                        dbc.Row(children=[  dbc.Col(dbc.Input(id=f"AO_{n}_target_low", placeholder="...", value=config['AO'][f'AO_{n}_target_low'], inputMode='numeric', type='text'), width=3), # AO sourse low
-                                            dbc.Col(html.Div('a.u.', id=f'AO_{n}_units_a',  className="ml-2 mt-3"), width=4),
+                        dbc.Row(children=[  
+                            dbc.Col(dbc.Input(id=f"AO_{n}_source_low", placeholder="...", value=config['AO'][f'AO_{n}_target_low'], inputMode='numeric', type='text'), width=3), # AO sourse low
+                            dbc.Col(html.Div('a.u.', id=f'AO_{n}_units_a',  className="ml-2 mt-3"), width=4),
 
-                                            dbc.Col(dbc.Input(id=f"AO_{n}_source_low", placeholder="...", value=config['AO'][f'AO_{n}_source_low'], inputMode='numeric', type='text'), width=3), # AO target low
-                                            dbc.Col(html.Div('mA', className="ml-2 mt-3"), width=2)], no_gutters=True, className="mb-2"),  
+                            dbc.Col(dbc.Input(id=f"AO_{n}_target_low", placeholder="...", value=config['AO'][f'AO_{n}_source_low'], inputMode='numeric', type='text'), width=3), # AO target low
+                            dbc.Col(html.Div('mA', className="ml-2 mt-3"), width=2)], no_gutters=True, className="mb-2"),  
                                             
-                        dbc.Row(children=[  dbc.Col(dbc.Input(id=f"AO_{n}_target_high", placeholder="...", value=config['AO'][f'AO_{n}_target_high'], inputMode='numeric', type='text'), width=3), # AO sourse high
-                                            dbc.Col(html.Div('a.u.', id=f'AO_{n}_units_b', className="ml-2 mt-3"), width=4),
+                        dbc.Row(children=[  
+                            dbc.Col(dbc.Input(id=f"AO_{n}_source_high", placeholder="...", value=config['AO'][f'AO_{n}_target_high'], inputMode='numeric', type='text'), width=3), # AO sourse high
+                            dbc.Col(html.Div('a.u.', id=f'AO_{n}_units_b', className="ml-2 mt-3"), width=4),
                                             
-                                            dbc.Col(dbc.Input(id=f"AO_{n}_source_high", placeholder="...", value=config['AO'][f'AO_{n}_source_high'], inputMode='numeric', type='text'), width=3), # AO target high
-                                            dbc.Col(html.Div('mA', className="ml-2 mt-3"), width=2)], no_gutters=True, className="mb-2"),
+                            dbc.Col(dbc.Input(id=f"AO_{n}_target_high", placeholder="...", value=config['AO'][f'AO_{n}_source_high'], inputMode='numeric', type='text'), width=3), # AO target high
+                            dbc.Col(html.Div('mA', className="ml-2 mt-3"), width=2)], no_gutters=True, className="mb-2"),
                         
                         dbc.Row(no_gutters=True, children=[
-                        dbc.Col(html.Div(children=['Analog output', html.Br(), 'mode:'],style={'font-size': '15px', 'text-align':'right'}, className='mr-2 mt-1'), width=5),
-                        dbc.Col(html.Div(dcc.Dropdown(options=[  {'label': '0...20 mA', 'value': '0...20'},
+                            dbc.Col(html.Div(children=['Analog output', html.Br(), 'mode:'],style={'font-size': '15px', 'text-align':'right'}, className='mr-2 mt-1'), width=5),
+                            dbc.Col(html.Div(dcc.Dropdown(options=[  {'label': '0...20 mA', 'value': '0...20'},
                                                 {'label': '4...20 mA', 'value': '4...20'},
                                                 {'label': '0...10 V', 'value': '0...10'}], 
-                                                value=config['AO'][f'AO_{n}_mode'],                                                                                                             # AO mode
+                                                value=config['AO'][f'AO_{n}_mode'],                                                                                                   # AO mode
+                                                disabled=True,                                                                                                            
                                                 style={'min-width': '0', 'margin-left':0}, className="mb-2 mt-2", clearable=False, searchable=False, id=f'AO_{n}_mode')), width=7),]),
 
-                        dbc.Row(no_gutters=True, children=[
-                        dbc.Col(html.Div(children=['Target units:'],style={'font-size': '15px', 'text-align':'right'}, className='mr-2 mt-2'), width=5),
-                        dbc.Col(dbc.Input(id=f"AO_{n}_units", placeholder="Enter units", value=config['AO'][f'AO_{n}_units'].replace('%%', '%'), type="text"), width=7)]),                      # AO units
+                        # dbc.Row(no_gutters=True, children=[
+                        #     dbc.Col(html.Div(children=['Target units:'],style={'font-size': '15px', 'text-align':'right'}, className='mr-2 mt-2'), width=5),
+                        #     dbc.Col(dbc.Input(id=f"AO_{n}_units", placeholder="Enter units", value=config['AO'][f'AO_{n}_units'].replace('%%', '%'), type="text"), width=7)]),        # AO units
                     ], body=True, style={'min-height': '250px'})])
                                 
     content = html.Div(children=[   dbc.Row(no_gutters=True, className='mt-3', children=[ao_n_settings_block(1), ao_n_settings_block(2), ao_n_settings_block(3), ao_n_settings_block(4)]),
@@ -391,6 +426,7 @@ def settings_content():
 #---------------------------------------------
 app = dash.Dash(__name__)
 app.title='Matrix'
+server = app.server
 
 def serve_layout():
     tab_label_style = {"color": "#00AEF9", "cursor": "pointer", "font-size": "large"} 
@@ -402,11 +438,11 @@ def serve_layout():
                                 ])], className="mb-2 ml-0 mr-0"),
         dbc.Tabs(id='main_tabs', active_tab='tab-0' , children=[   
             dbc.Tab(tab_id="tab-0", label='Cockpit', children=[tab0_content()], label_style=tab_label_style), 
-            dbc.Tab(tab_id="tab-1", label='Level 1', children=[tab1_content()], label_style=tab_label_style),
-            dbc.Tab(tab_id="db_browser", label='Level 2', children=[db_browser_content()], label_style=tab_label_style),
-            dbc.Tab(tab_id="tab-3", label='Level 3', children=[''], label_style=tab_label_style),
-            dbc.Tab(tab_id="tab-4", label='Level 4', children=[''], label_style=tab_label_style),
-            dbc.Tab(tab_id="tab-5", label='Level 5', children=[''], label_style=tab_label_style),
+            #dbc.Tab(tab_id="tab-1", label='Level 1', children=[tab1_content()], label_style=tab_label_style),
+            dbc.Tab(tab_id="db_browser", label='Data browser', children=[db_browser_content()], label_style=tab_label_style),
+            #dbc.Tab(tab_id="tab-3", label='Level 3', children=[''], label_style=tab_label_style),
+            #dbc.Tab(tab_id="tab-4", label='Level 4', children=[''], label_style=tab_label_style),
+            #dbc.Tab(tab_id="tab-5", label='Level 5', children=[''], label_style=tab_label_style),
             dbc.Tab(tab_id="tab-settings", label='Settings', children=[settings_content()], label_style=tab_label_style),
             dcc.Interval(id='interval-component_60', interval=60*1000, n_intervals=0),  # Inreval triggers every 60 seconds. Used for the date and time notification
             dcc.Interval(id='interval-component_20', interval=20*1000, n_intervals=0),  # Inreval triggers every 20 seconds
@@ -420,8 +456,9 @@ app.layout = serve_layout
 
 
 
-#-----------CALLBACKS---------------------                              
-
+#-----------CALLBACKS---------------------  
+                         
+#---Status Bar--------------------------------------------------------
 #----------updates date and time notification in status bar------------
 @app.callback(  Output("date_time_notification", "children"), 
                 [Input('interval-component_1', 'n_intervals')]) 
@@ -433,24 +470,70 @@ def update_date_time(n):
             dbc.Row([   dbc.Col(current_time.strftime("%H:%M:%S"), width=5), dbc.Col(current_time.strftime("%Z"), width=7)], justify="start")]
 
 
-#----------updates live chart in Cockpit------------
-@app.callback(  [Output("live-chart", "figure"), Output('input1_last_value', 'children')],
-                [Input('interval-component_10', 'n_intervals')],
-                [State('main_tabs', 'active_tab'), State('live-chart', 'figure'), State('input1_last_value', 'children')]) 
-def update_graph_live(n, active_tab, figure_state, input1_last_value_state):
+#---Cockpit------------------------------------------------------
+@app.callback(  Output('slider_a', 'value'),
+                [Input('slider_b', 'value')]) 
+def set_slider_value_a(value_b):
+    return value_b
+
+
+#----------updates last value in Cockpit-------------------------
+@app.callback(  [Output('last_value_to_indicate_a', 'children'), Output('last_value_to_indicate_b', 'children')],
+                [Input('interval-component_1', 'n_intervals')],
+                [State('channel_to_monitor_a', 'value'), State('channel_to_monitor_b', 'value')]) 
+def update_last_values(n, channel_to_monitor_a, channel_to_monitor_b):
+    # last_average_value = str(round((np.average(df_append[1].values)),2))
+    url = 'http://localhost:5001/get_last_measurement'
+    x = requests.get(url)
+    
+    last_values = x.json()
+    values_names = ['input_1', 'input_2', 'input_3', 'input_4', 'input_5', 'input_6', 'input_7', 'input_6',
+                    'in_1_calculated', 'in_2_calculated', 'in_3_calculated', 'in_4_calculated', 'in_5_calculated', 'in_6_calculated', 'in_7_calculated', 'in_8_calculated',
+                    'output_1', 'output_2', 'output_3', 'output_4']
+
+    last_value_a = str(round(last_values[values_names.index(config['cockpit']['data_to_show_a'])], 2))
+    print(config['cockpit']['data_to_show_b'])
+    if config['cockpit']['data_to_show_b'] != 'empty':
+        last_value_b = str(round(last_values[values_names.index(config['cockpit']['data_to_show_b'])], 2))
+    else: last_value_b = '---'
+
+    return [last_value_a, last_value_b]
+
+
+
+#----------updates live chart in Cockpit-------------------------
+@app.callback(  [Output("live-chart", "figure")],
+                [Input('interval-component_20', 'n_intervals'), Input('channel_to_monitor_a', 'value')],
+                [State('main_tabs', 'active_tab'), State('live-chart', 'figure')]) 
+def update_graph_live(n, channel_to_monitor_a,  active_tab, figure_state):
     if active_tab == 'tab-0':
         print ('updating live chart...')
-        global last_point_in_chart
+        global time_of_last_point_in_chart
         global df
+        global data_to_show_a 
+
+
         current_time = datetime.datetime.utcnow()
 
-        lock.acquire()
-        df_append_a = db_reader_a.get_data_generic('date_time_utc', [config['cockpit']['data_to_show_a']], (last_point_in_chart + datetime.timedelta(seconds=1)).strftime("%Y_%m_%d %H:%M:%S"), current_time.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = '10')
-        lock.release()
+
+        if config['cockpit']['data_to_show_a'] != data_to_show_a:
+            lock.acquire()
+            df_append_a = db_reader_b.get_data_generic('date_time_utc', [config['cockpit']['data_to_show_a']], (current_time - datetime.timedelta(hours=1)).strftime("%Y_%m_%d %H:%M:%S"), current_time.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = '1')
+            lock.release()
+            data_to_show_a = config['cockpit']['data_to_show_a']
+        else: 
+            lock.acquire()
+            df_append_a = db_reader_b.get_data_generic('date_time_utc', [config['cockpit']['data_to_show_a']], (time_of_last_point_in_chart + datetime.timedelta(seconds=1)).strftime("%Y_%m_%d %H:%M:%S"), current_time.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = '1')
+            lock.release()
+
+        # if config['cockpit']['data_to_show_a'] != 'empty':
+        #     lock.acquire()
+        #     df_append_b = db_reader_b.get_data_generic('date_time_utc', [config['cockpit']['data_to_show_b']], (time_of_last_point_in_chart + datetime.timedelta(seconds=1)).strftime("%Y_%m_%d %H:%M:%S"), current_time.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = '1')
+        #     lock.release()
+        # else: pass
+
         
         df_append = df_append_a[0]
-        last_average_value = str(np.average(df_append[1].values))
-
         df = df.append(df_append, ignore_index=True) 
         df = df[df_append.shape[0]:]    # deletes first rows
 
@@ -461,15 +544,26 @@ def update_graph_live(n, active_tab, figure_state, input1_last_value_state):
         for i in df_utc:
             df_local_time.append(i.astimezone(timezone(config['db_browser']['local_time_zone'])))
 
-        last_point_in_chart = current_time
+        time_of_last_point_in_chart = current_time
         fig = go.Figure(data=go.Scattergl(mode='lines+markers', line=dict(color='#1E90FF', width=4, dash='dot'), x=df_local_time, y=df[1]))
         fig.update_layout(margin=dict(t=50))
-        return fig, last_average_value
+        return [fig]
     else:
-        return figure_state, input1_last_value_state
+        return [figure_state]
         
+#--- Cockpit Settings-------------------------------------------
+@app.callback(  Output('hidden-div-4', 'children'),
+                [Input('channel_to_monitor_a', 'value'), Input('channel_to_monitor_b', 'value')]) 
+def cockpit_settings(channel_to_monitor_a, channel_to_monitor_b):
+    config['cockpit']['data_to_show_a'] = channel_to_monitor_a
+    config['cockpit']['data_to_show_b'] = channel_to_monitor_b
+    write_config()
 
 
+
+
+
+# Browser-------------------------------------
 #--------This loads day chart in the db_browser
 @app.callback(  [Output("day_chart", "figure"), Output('download_selected_data', 'href'), Output('download_selected_data', 'children')], 
                 [Input("table", "selected_cells"), Input('button_load_curves', 'n_clicks')], 
@@ -491,6 +585,7 @@ def current_cell(   selected_cell, button_load_curves_input, data, days_and_poin
             list_of_channels.append(channel_index)
         channel_index = channel_index + 1
     list_of_inputs_state = l
+  
  
     current_cell = data[selected_cell[0]['row']]['tabels_in_db'] # current cell as string formated as "2020_01_21"
     date_in_cell = datetime.datetime.strptime(current_cell, '%Y_%m_%d')
@@ -545,6 +640,33 @@ def current_cell(   selected_cell, button_load_curves_input, data, days_and_poin
                 else:
                     pass
 
+    yaxis_labels = [label.replace('Analog Input','AI')  for label in yaxis_labels]
+    yaxis_labels = [label.replace('Analog Output','AO')  for label in yaxis_labels]
+    
+    ai_1_units = config['AI']['ai_1_units']
+    ai_2_units = config['AI']['ai_2_units']
+    ai_3_units = config['AI']['ai_3_units']
+    ai_4_units = config['AI']['ai_4_units']
+    ai_5_units = config['AI']['ai_5_units']
+    ai_6_units = config['AI']['ai_6_units']
+    ai_7_units = config['AI']['ai_7_units']
+    ai_8_units = config['AI']['ai_8_units']
+    ao_1_units = config['AO']['ao_1_units']
+    ao_2_units = config['AO']['ao_2_units']
+    ao_3_units = config['AO']['ao_3_units']
+    ao_4_units = config['AO']['ao_4_units']
+
+    units_id = ['in_1_calculated', 'in_2_calculated', 'in_3_calculated', 'in_4_calculated', 'in_5_calculated', 'in_6_calculated', 'in_7_calculated', 'in_1_calculated', 'output_1', 'output_2', 'output_3', 'output_4']
+    units_list = [ai_1_units, ai_2_units, ai_3_units, ai_4_units, ai_5_units, ai_6_units, ai_7_units, ai_8_units, ao_1_units, ao_2_units, ao_3_units, ao_4_units ]
+
+    yaxis_units = []
+    for item in yaxis_names:
+        try: yaxis_units.append(units_list[units_id.index(item)])
+        except: yaxis_units.append('...')
+
+    # print (yaxis_names)
+    # print (yaxis_labels)
+    # print (yaxis_units)
 
     k = 0
     for i in df_b:     
@@ -556,28 +678,26 @@ def current_cell(   selected_cell, button_load_curves_input, data, days_and_poin
     
     list_of_channels.extend([0] * (4 - len(list_of_channels)))
     fig.update_layout(  
-                        yaxis =dict(title=yaxis_labels[0], titlefont=dict(color=trace_colors[list_of_channels[0]]), tickfont=dict(color=trace_colors[list_of_channels[0]]), anchor="free", side="left", position=0),
-                        yaxis2=dict(title=yaxis_labels[1], titlefont=dict(color=trace_colors[list_of_channels[1]]), tickfont=dict(color=trace_colors[list_of_channels[1]]), anchor="free", side="left", position=0.07),
-                        yaxis3=dict(title=yaxis_labels[2], titlefont=dict(color=trace_colors[list_of_channels[2]]), tickfont=dict(color=trace_colors[list_of_channels[2]]), anchor="free", side="left", position=0.14),
-                        yaxis4=dict(title=yaxis_labels[3], titlefont=dict(color=trace_colors[list_of_channels[3]]), tickfont=dict(color=trace_colors[list_of_channels[3]]), anchor="free", side="left", position=0.21))
+                        yaxis =dict(title=yaxis_labels[0] +', '+ yaxis_units[0], titlefont=dict(color=trace_colors[list_of_channels[0]]), tickfont=dict(color=trace_colors[list_of_channels[0]]), anchor="free", side="left", position=0),
+                        yaxis2=dict(title=yaxis_labels[1] +', '+ yaxis_units[1], titlefont=dict(color=trace_colors[list_of_channels[1]]), tickfont=dict(color=trace_colors[list_of_channels[1]]), anchor="free", side="left", position=0.07),
+                        yaxis3=dict(title=yaxis_labels[2] +', '+ yaxis_units[2], titlefont=dict(color=trace_colors[list_of_channels[2]]), tickfont=dict(color=trace_colors[list_of_channels[2]]), anchor="free", side="left", position=0.14),
+                        yaxis4=dict(title=yaxis_labels[3] +', '+ yaxis_units[3], titlefont=dict(color=trace_colors[list_of_channels[3]]), tickfont=dict(color=trace_colors[list_of_channels[3]]), anchor="free", side="left", position=0.21))
     x_domain_list = [0, 0.07, 0.14, 0.21]
     fig.update_layout(xaxis=dict(domain=[x_domain_list[k-1], 1]))
     fig.update_layout(margin=dict(t=50))
        
-    input_list = ''.join(list_of_inputs_state).replace('input_','_raw').replace('_calculated','').replace('in_','_cal')
+    input_list = ''.join(list_of_inputs_state).replace('input_','_raw').replace('_calculated','').replace('in_','_in').replace('output_','_out')
     file_name = f"{current_cell[2:10].replace('_', '')}_{fetch_sec_state}_{days_in_chart_state}{input_list}.csv"
     df_merged.to_csv(work_dir + '/download/' + file_name, sep=',', index=False)
     link_to_file = 'download/' + file_name
 
     return fig, link_to_file, f'Download selected data: ' + file_name
 
-#---------------------
+#------Link for download---------------
 @app.server.route('/download/<path:path>')
 def download(path):
     """Serve a file from the upload directory."""
     return send_file(f'download/{path}', mimetype='text/csv', attachment_filename=f'{path}', as_attachment=True)
-
-
 
 #--------Reload tables from db (db_browser)
 @app.callback(                                         
@@ -590,7 +710,7 @@ def update_output(n_clicks):
 
 
 
-#-------Settings---------------------------------------------------
+#--Analog Inputs--------------------------------------------------
 #-------Set target units of Analog Inputs -------------------------
 @app.callback(  [Output("AI_1_units_a", "children"), Output('AI_1_units_b', 'children')],
                 [Input("AI_1_units", "value")])
@@ -631,7 +751,6 @@ def update_units_7(units):
                 [Input("AI_8_units", "value")])
 def update_units_8(units):
     return units, units
-
 
 
 #------Update Config / Analog Input Settings------------------------
@@ -735,7 +854,6 @@ def update_config_AI(   AI_1_n_clicks,
     write_config()
 
 
-
 #------Set Analog Inputs active/disabled--------
 color = 'AliceBlue'
 @app.callback(  [Output('AI_1_card', 'color'), Output('AI_1_card', 'style')],  # AI 1 active/disabled
@@ -837,59 +955,122 @@ def set_active_8(active_value):
 
 
 
+#---Analog Outputs---------------------------------------------------
 #------Update Config / Analog Output Settings------------------------
+@app.callback(  Output('hidden-div-3', 'children'),
+                [Input('save_AO_settings', 'n_clicks'), Input('save_AO_settings_', 'n_clicks')], 
+                [State('AO_1_description_', 'value'), State('AO_2_description_', 'value'), State('AO_3_description_', 'value'), State('AO_4_description_', 'value'),
+                State("AO_1_units_", "value"), State("AO_2_units_", "value"), State("AO_3_units_", "value"), State("AO_4_units_", "value"),
+                State('AO_1_source_low', 'value'), State('AO_1_target_low', 'value'), State('AO_1_source_high', 'value'), State('AO_1_target_high', 'value'),
+                State('AO_2_source_low', 'value'), State('AO_2_target_low', 'value'), State('AO_2_source_high', 'value'), State('AO_2_target_high', 'value'),
+                State('AO_3_source_low', 'value'), State('AO_3_target_low', 'value'), State('AO_3_source_high', 'value'), State('AO_3_target_high', 'value'),
+                State('AO_4_source_low', 'value'), State('AO_4_target_low', 'value'), State('AO_4_source_high', 'value'), State('AO_4_target_high', 'value')])
+def update_config_AO(   AO_n_clicks, AO_n_clicks_,
+                        AO_1_description, AO_2_description, AO_3_description, AO_4_description,
+                        AO_1_units, AO_2_units, AO_3_units, AO_4_units,
 
-#------Set Analog Outputs active/disabled--------
-@app.callback(  [Output('AO_1_card', 'color'), Output('AO_1_card', 'style')],  # AO 1 active/disabled
-                [Input('AO_1_active', 'value')])
-def set_ao_active_1(active_value):
-    if active_value == ['True']:
-        config['AO']['AO_1_active'] = 'True'
-        write_config()
-        return ['primary', {'min-height': '250px', 'background-color':color}]
-    else:
-        config['AO']['AO_1_active'] = 'Flase'
-        write_config()
-        return ['', {'min-height': '250px'}]
+                        AO_1_source_low, AO_1_target_low, AO_1_source_high, AO_1_target_high,
+                        AO_2_source_low, AO_2_target_low, AO_2_source_high, AO_2_target_high,
+                        AO_3_source_low, AO_3_target_low, AO_3_source_high, AO_3_target_high,
+                        AO_4_source_low, AO_4_target_low, AO_4_source_high, AO_4_target_high):
 
-@app.callback(  [Output('AO_2_card', 'color'), Output('AO_2_card', 'style')],  # AO 2 active/disabled
-                [Input('AO_2_active', 'value')])
-def set_ao_active_2(active_value):
-    if active_value == ['True']:
-        config['AO']['AO_2_active'] = 'True'
-        write_config()
-        return ['primary', {'min-height': '250px', 'background-color':color}]
-    else:
-        config['AO']['AO_2_active'] = 'Flase'
-        write_config()
-        return ['', {'min-height': '250px'}]
+    config['AO']['AO_1_description'] = '...' if AO_1_description == '' else AO_1_description.replace('%', '%%')       # Configparser does not accept '%', use '%%' instead
+    config['AO']['AO_2_description'] = '...' if AO_2_description == '' else AO_2_description.replace('%', '%%')
+    config['AO']['AO_3_description'] = '...' if AO_3_description == '' else AO_3_description.replace('%', '%%')
+    config['AO']['AO_4_description'] = '...' if AO_4_description == '' else AO_4_description.replace('%', '%%')
 
-@app.callback(  [Output('AO_3_card', 'color'), Output('AO_3_card', 'style')],  # AO 3 active/disabled
-                [Input('AO_3_active', 'value')])
-def set_ao_active_3(active_value):
-    if active_value == ['True']:
-        config['AO']['AO_3_active'] = 'True'
-        write_config()
-        return ['primary', {'min-height': '250px', 'background-color':color}]
-    else:
-        config['AO']['AO_3_active'] = 'Flase'
-        write_config()
-        return ['', {'min-height': '250px'}]
+    config['AO']['AO_1_units'] = AO_1_units.replace('%', '%%')
+    config['AO']['AO_2_units'] = AO_2_units.replace('%', '%%')
+    config['AO']['AO_3_units'] = AO_3_units.replace('%', '%%')
+    config['AO']['AO_4_units'] = AO_4_units.replace('%', '%%')
 
-@app.callback(  [Output('AO_4_card', 'color'), Output('AO_4_card', 'style')],  # AO 4 active/disabled
-                [Input('AO_4_active', 'value')])
-def set_ao_active_4(active_value):
-    if active_value == ['True']:
-        config['AO']['AO_4_active'] = 'True'
-        write_config()
-        return ['primary', {'min-height': '250px', 'background-color':color}]
-    else:
-        config['AO']['AO_4_active'] = 'Flase'
-        write_config()
-        return ['', {'min-height': '250px'}]
+    config['AO']['AO_1_source_low'] = AO_1_source_low
+    config['AO']['AO_1_target_low'] = AO_1_target_low
+    config['AO']['AO_1_source_high'] = AO_1_source_high
+    config['AO']['AO_1_target_high'] = AO_1_target_high 
 
-#------Set Analog Outputs of the model - channel to be output to --------
-@app.callback(  [Output('model_output_a', 'options'), Output('model_output_b', 'options'), Output('model_output_c', 'options'), Output('model_output_d', 'options')], 
+    config['AO']['AO_2_source_low'] = AO_2_source_low
+    config['AO']['AO_2_target_low'] = AO_2_target_low
+    config['AO']['AO_2_source_high'] = AO_2_source_high
+    config['AO']['AO_2_target_high'] = AO_2_target_high 
+
+    config['AO']['AO_3_source_low'] = AO_3_source_low
+    config['AO']['AO_3_target_low'] = AO_3_target_low
+    config['AO']['AO_3_source_high'] = AO_3_source_high
+    config['AO']['AO_3_target_high'] = AO_3_target_high 
+
+    config['AO']['AO_4_source_low'] = AO_4_source_low
+    config['AO']['AO_4_target_low'] = AO_4_target_low
+    config['AO']['AO_4_source_high'] = AO_4_source_high
+    config['AO']['AO_4_target_high'] = AO_4_target_high 
+
+    write_config()
+
+
+
+#-------Set source units and descriptions of Analog Outputs -------------------------
+@app.callback(  [Output('AO_1_description', 'value'), Output('AO_2_description', 'value'), Output('AO_3_description', 'value'), Output('AO_4_description', 'value'),
+                
+                Output("AO_1_units_a", "children"), Output('AO_1_units_b', 'children'), Output("AO_2_units_a", "children"), Output('AO_2_units_b', 'children'),
+                Output("AO_3_units_a", "children"), Output('AO_3_units_b', 'children'), Output("AO_4_units_a", "children"), Output('AO_4_units_b', 'children')],
+
+
+                [Input('AO_1_description_', 'value'), Input('AO_2_description_', 'value'), Input('AO_3_description_', 'value'), Input('AO_4_description_', 'value'),
+                Input('model_output_a', 'value'), Input('model_output_b', 'value'), Input('model_output_c', 'value'), Input('model_output_d', 'value'),
+                Input("AO_1_units_", "value"), Input("AO_2_units_", "value"),Input("AO_3_units_", "value"),Input("AO_4_units_", "value")])
+def update_output_units_1(  description_1_, description_2_, description_3_, description_4_,
+                            model_output_a, model_output_b, model_output_c, model_output_d,
+                            AO_1_units_, AO_2_units_, AO_3_units_, AO_4_units_):
+    
+
+    
+    j = [model_output_a, model_output_b, model_output_c, model_output_d]
+    k = [description_1_, description_2_, description_3_, description_4_]
+    l = [AO_1_units_, AO_2_units_, AO_3_units_, AO_4_units_]
+    
+    try: 
+        description_1 = k[j.index('output_1')]
+        AO_1_units = l[j.index('output_1')]
+
+    except: 
+        description_1 = 'Not active'
+        AO_1_units = '...'
+    
+    try: 
+        description_2 = k[j.index('output_2')]
+        AO_2_units = l[j.index('output_2')]
+    except: 
+        description_2 = 'Not active'
+        AO_2_units = '...'
+    
+    try: 
+        description_3 = k[j.index('output_3')]
+        AO_3_units = l[j.index('output_3')]
+    except: 
+        description_3 = 'Not active'
+        AO_3_units = '...'
+    
+    try: 
+        description_4 = k[j.index('output_4')]
+        AO_4_units = l[j.index('output_4')]
+    except: 
+        description_4 = 'Not active'
+        AO_4_units = '...'
+
+
+    out =  [description_1, description_2, description_3, description_4, 
+            AO_1_units, AO_1_units, AO_2_units, AO_2_units,
+            AO_3_units, AO_3_units, AO_4_units, AO_4_units]
+
+    return out
+
+
+
+#---Model----------------------------------------------------------------
+#------Set Analog Outputs of the MODEL - channel to be output to --------
+@app.callback(  [Output('model_output_a', 'options'), Output('model_output_b', 'options'), Output('model_output_c', 'options'), Output('model_output_d', 'options'),
+                Output('AO_1_card', 'color'), Output('AO_1_card', 'style'), Output('AO_1_active', 'value'), Output('AO_2_card', 'color'), Output('AO_2_card', 'style'), Output('AO_2_active', 'value'),
+                Output('AO_3_card', 'color'), Output('AO_3_card', 'style'), Output('AO_3_active', 'value'), Output('AO_4_card', 'color'), Output('AO_4_card', 'style'), Output('AO_4_active', 'value')], 
                 [Input('model_output_a', 'value'), Input('model_output_b', 'value'), Input('model_output_c', 'value'), Input('model_output_d', 'value'),
                 Input('model_input_a', 'value'), Input('model_input_b', 'value'), Input('model_input_c', 'value'), Input('model_input_d', 'value'),
                 Input('model_input_e', 'value'), Input('model_input_f', 'value'), Input('model_input_g', 'value'), Input('model_input_h', 'value') ])
@@ -909,54 +1090,69 @@ def set_model_output_list_a(value_a, value_b, value_c, value_d,
     config['model']['model_input_g'] = value_input_g
     config['model']['model_input_h'] = value_input_h
 
-
-    write_config()
-
     channels_output_a =[  
-            {'label': 'Empty', 'value': 'empty'},
+            {'label': 'Not active', 'value': 'empty'},
             {'label': 'Analog Output 1', 'value': 'output_1', 'disabled': True if value_b == 'output_1' or value_c == 'output_1' or value_d == 'output_1' else False},
             {'label': 'Analog Output 2', 'value': 'output_2', 'disabled': True if value_b == 'output_2' or value_c == 'output_2' or value_d == 'output_2' else False},
             {'label': 'Analog Output 3', 'value': 'output_3', 'disabled': True if value_b == 'output_3' or value_c == 'output_3' or value_d == 'output_3' else False},
             {'label': 'Analog Output 4', 'value': 'output_4', 'disabled': True if value_b == 'output_4' or value_c == 'output_4' or value_d == 'output_4' else False}  ]
     channels_output_b =[  
-            {'label': 'Empty', 'value': 'empty'},
+            {'label': 'Not active', 'value': 'empty'},
             {'label': 'Analog Output 1', 'value': 'output_1', 'disabled': True if value_a == 'output_1' or value_c == 'output_1' or value_d == 'output_1' else False},
             {'label': 'Analog Output 2', 'value': 'output_2', 'disabled': True if value_a == 'output_2' or value_c == 'output_2' or value_d == 'output_2' else False},
             {'label': 'Analog Output 3', 'value': 'output_3', 'disabled': True if value_a == 'output_3' or value_c == 'output_3' or value_d == 'output_3' else False},
             {'label': 'Analog Output 4', 'value': 'output_4', 'disabled': True if value_a == 'output_4' or value_c == 'output_4' or value_d == 'output_4' else False}  ]
     channels_output_c =[  
-            {'label': 'Empty', 'value': 'empty'},
+            {'label': 'Not active', 'value': 'empty'},
             {'label': 'Analog Output 1', 'value': 'output_1', 'disabled': True if value_b == 'output_1' or value_a == 'output_1' or value_d == 'output_1' else False},
             {'label': 'Analog Output 2', 'value': 'output_2', 'disabled': True if value_b == 'output_2' or value_a == 'output_2' or value_d == 'output_2' else False},
             {'label': 'Analog Output 3', 'value': 'output_3', 'disabled': True if value_b == 'output_3' or value_a == 'output_3' or value_d == 'output_3' else False},
             {'label': 'Analog Output 4', 'value': 'output_4', 'disabled': True if value_b == 'output_4' or value_a == 'output_4' or value_d == 'output_4' else False}  ]       
     channels_output_d =[  
-            {'label': 'Empty', 'value': 'empty'},
+            {'label': 'Not active', 'value': 'empty'},
             {'label': 'Analog Output 1', 'value': 'output_1', 'disabled': True if value_b == 'output_1' or value_c == 'output_1' or value_a == 'output_1' else False},
             {'label': 'Analog Output 2', 'value': 'output_2', 'disabled': True if value_b == 'output_2' or value_c == 'output_2' or value_a == 'output_2' else False},
             {'label': 'Analog Output 3', 'value': 'output_3', 'disabled': True if value_b == 'output_3' or value_c == 'output_3' or value_a == 'output_3' else False},
             {'label': 'Analog Output 4', 'value': 'output_4', 'disabled': True if value_b == 'output_4' or value_c == 'output_4' or value_a == 'output_4' else False}  ]
  
+    j = [value_a, value_b, value_c, value_d]  #  'AO_1_active'  ['True']
 
+    if 'output_1' in j:
+        config['AO']['AO_1_active'] = 'True'
+        active_marker_1 = ['primary', {'min-height': '250px', 'background-color':color}, ['True']]
+    else:
+        config['AO']['AO_1_active'] = 'Flase'
+        active_marker_1 = ['', {'min-height': '250px'}, ['False']]
+
+    if 'output_2' in j:
+        config['AO']['AO_2_active'] = 'True'
+        active_marker_2 = ['primary', {'min-height': '250px', 'background-color':color}, ['True']]
+    else:
+        config['AO']['AO_2_active'] = 'Flase'
+        active_marker_2 = ['', {'min-height': '250px'}, ['False']]
+
+    if 'output_3' in j:
+        config['AO']['AO_3_active'] = 'True'
+        active_marker_3 = ['primary', {'min-height': '250px', 'background-color':color}, ['True']]
+    else:
+        config['AO']['AO_3_active'] = 'Flase'
+        active_marker_3 = ['', {'min-height': '250px'}, ['False']]
+
+    if 'output_4' in j:
+        config['AO']['AO_4_active'] = 'True'
+        active_marker_4 = ['primary', {'min-height': '250px', 'background-color':color}, ['True']]
+    else:
+        config['AO']['AO_4_active'] = 'Flase'
+        active_marker_4 = ['', {'min-height': '250px'}, ['False']]
+
+    write_config()
     
-    
-    return [channels_output_a, channels_output_b, channels_output_c, channels_output_d]
+    return [channels_output_a, channels_output_b, channels_output_c, channels_output_d]  + active_marker_1  + active_marker_2 + active_marker_3 + active_marker_4
 
 
 
 
-#------Switch between Setting Tabs------------------------------------------
-@app.callback(Output('hidden-div-3', 'children'), [Input('setting_tabs', 'active_tab')])
-def switch_tab(ac):
-    if ac == 'tab_mx':
-        print(config['AI']['AI_1_active'])
-        print(config['AI']['AI_2_active'])
-        print(config['AI']['AI_3_active'])
-        print(config['AI']['AI_4_active'])
-
-
-#------------Update Config / db_broweser------------------------
-
+#------------Update Config / db_browser------------------------
 @app.callback(   Output("hidden-div-1", "children"),     
                 [Input("dropdown_zime_zone", "value"), Input('days_and_points_in_chart', 'value'),
                  Input('channel_to_show_a', 'value'), Input('channel_to_show_b', 'value'), Input('channel_to_show_c', 'value'), Input('channel_to_show_d', 'value'),
@@ -982,11 +1178,11 @@ def update_config(time_zone, days_and_points_in_chart, channel_to_show_a, channe
 
 
 
-#------------------------------------
+#-----------------------------------
 #-----------------------------------
 
 
 
 if __name__ == '__main__':
-    app.run_server(debug=False, host='0.0.0.0', port=8050)
+    app.run_server(debug=False, host='0.0.0.0', port=8050, threaded = True)
 

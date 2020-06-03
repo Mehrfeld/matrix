@@ -1,0 +1,14 @@
+ALTER USER 'root'@'192.168.1.95' IDENTIFIED WITH mysql_native_password BY 'th6nw7hg';
+
+GRANT ALL PRIVILEGES ON `dash_main`.* TO 'root'@'%'
+
+
+ docker run --name myadmin -d -e PMA_ARBITRARY=1 -p 8080:80 sk278/phpmyadmin-armhf:4.8.3
+
+
+
+
+http://sqlfiddle.com/#!9/30abb8/69
+
+https://stackoverflow.com/questions/46899025/selecting-candlestick-data-max-min-open-close-for-specific-period-of-time
+
