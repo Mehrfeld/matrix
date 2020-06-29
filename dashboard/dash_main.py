@@ -1,4 +1,6 @@
-import os
+#!/usr/bin/python3.6
+
+import os, sys, signal
 from flask import send_file
 import dash
 import dash_bootstrap_components as dbc
@@ -6,7 +8,7 @@ import dash_html_components as html
 import dash_core_components as dcc
 import dash_table
 from dash.dependencies import Input, Output, State
-from classes_a import get_data_generic, get_tables_list, get_data_from_db_average
+#from classes_a import get_tables_list, get_data_from_db_average
 
 import plotly.graph_objects as go
 import numpy as np
@@ -17,22 +19,46 @@ import requests
 from pytz import timezone
 import pytz
 
+import logging
 import configparser
 # import fcntl # locking access to a file for different applications/processes
 from threading import Lock
 
 from db_connector import DB_Reader
 
-lock = Lock() 
 
-db_reader_a = DB_Reader()
-db_reader_b = DB_Reader()
+def sigterm_handler(signal, frame):
+    global exit_flag
+    exit_flag = True
+    # save the state here or do whatever you want
+    print('\n', 'bye bye...')
+    time.sleep(5)
+    sys.exit(0)
+
+
+signal.signal(signal.SIGTERM, sigterm_handler)
+
+lock = Lock()
+
+logging.basicConfig(filename='dashboard.log', filemode = 'w', level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.info('Starting Dashboard')
+
+
+db_reader_a = DB_Reader() # used for db_browser
+db_reader_b = DB_Reader() # used for cockpit
+
+
 
 work_dir = os.path.abspath(os.path.dirname(__file__))
 
 config = configparser.ConfigParser()
 config.read(work_dir + '/matrix.ini')
 print(os.path.abspath(os.path.dirname(__file__)))
+
+
+
+
+
 
 def write_config():
     with open(work_dir + '/matrix.ini', 'w') as configfile:
@@ -96,67 +122,147 @@ def channels_output():
 
 #-----------tab_0_content (Cockpit)-------------------
 def tab0_content():
-    global time_of_last_point_in_chart
-    global df
+
+    logging.info('Redrowing Cockpit content')
+    print('Redrowing Cockpit content')
+
+    global time_of_last_point_in_chart_a_graph
+    #global df_a_graph, df_b_graph
     global fig
-    global data_to_show_a, data_to_show_b
-    data_to_show_a = config['cockpit']['data_to_show_a']
-    data_to_show_b = config['cockpit']['data_to_show_b']
+    global data_to_show_a_graph, data_to_show_b_graph, period_to_monitor_a_graph, period_to_monitor_b_graph
+
+    data_to_show_a_graph = config['cockpit']['data_to_show_a_graph']
+    data_to_show_b_graph = config['cockpit']['data_to_show_b_graph']
+    period_to_monitor_a_graph = 'start value'
+    period_to_monitor_b_graph = 'start value'
 
     current_time = datetime.datetime.utcnow()
-    time_of_last_point_in_chart = current_time
+    time_of_last_point_in_chart_a_graph = current_time
 
-    lock.acquire()
-    df_a = db_reader_b.get_data_generic('date_time_utc', [config['cockpit']['data_to_show_a']], (current_time - datetime.timedelta(hours=1)).strftime("%Y_%m_%d %H:%M:%S"), current_time.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = '1')
-    lock.release()
+    # start_date_time='2020_01_01 10:00:00'
+    # stop_date_time='2020_01_01 12:00:00'
+    # df_a_graph = pd.DataFrame({0:[datetime.datetime.strptime(start_date_time, "%Y_%m_%d %H:%M:%S"), datetime.datetime.strptime(stop_date_time, "%Y_%m_%d %H:%M:%S")], 1 :[0.0, 0.0]})
+    # df_b_graph = pd.DataFrame({0:[datetime.datetime.strptime(start_date_time, "%Y_%m_%d %H:%M:%S"), datetime.datetime.strptime(stop_date_time, "%Y_%m_%d %H:%M:%S")], 1 :[0.0, 0.0]})
 
-    df = df_a[0]
-    fig = go.Figure(data=go.Scattergl(mode='lines+markers', line=dict(color='#1E90FF', width=4, dash='dot'), x=df[0], y=df[1])) # use Scattergl for large data
-    fig['layout']['xaxis'].update(title='111', autorange=True)
-    fig['layout']['yaxis'].update(title='111', range=[0, 25], autorange=True)
-    fig['layout'].update(autosize = True)
-    fig.update_layout(margin=dict(t=50))
-
+    fig = go.Figure(data=go.Scattergl(mode='lines+markers', line=dict(color='#1E90FF', width=4, dash='dot'), x=[0], y=[0])) # use Scattergl for large data
+    fig['layout']['xaxis'].update(title='Date and Time', type='date', tickformat='%H:%M\n%b %d, %Y',  autorange=True)
+    fig['layout']['yaxis'].update(title='...', autorange=True)
+    #fig['layout'].update(autosize = True)
+    fig.update_layout(margin=dict(t=50), autosize = True)
 
     tab0_content = dbc.Card(html.Div(children=[
+        dcc.Store(id='memory_a_graph'),
+        dcc.Store(id='store_to_append_a_graph'),
+        dcc.Store(id='state_a_graph'),
+        dcc.Store(id='memory_b_graph'),
+        dcc.Store(id='data_to_append_b_graph'), 
+        dcc.Store(id='state_b_graph'),
         dbc.CardBody(children=[
-            dbc.Row(no_gutters=False, children=[ 
-                dbc.Col(width=4, style={'text-align':'left'}, children=[  
+            dbc.Row(no_gutters=True, children=[ 
+                
+                dbc.Col(width=3, style={'text-align':'left'}, children=[  
+                        html.Div(style={'margin-top':30, 'padding':15}, children=[      
+                            dbc.Row(style={'margin-top':0}, no_gutters=True, children=[
+                                        dbc.Col(width=12, children=[
+                                                            dcc.Dropdown(   options=[{ **item, 'label': item['label'].replace('Analog Input', 'AI').replace('Analog Output', 'AO').replace('(', '- ').replace(')', '')} for item in channels()[1:21]]      , 
+                                                                            value=config['cockpit']['data_to_show_a'], style={'width': '100%', 'margin-left':0, 'margin-top':0, 'margin-bottom':0, 'font-weight':'bold'}, clearable=False, searchable=False,
+                                                                            id='channel_to_monitor_a')])    ]),
+                            html.Div('--,--', id='last_value_to_indicate_a', style={    'height': '60px', 'width': '100%', 'margin-bottom':10, 'margin-top':10,
+                                                                                        'border-style': 'double', 'border-color': 'Gainsboro', 'border-width': '4px',
+                                                                                        'font-weight':'bold','font-size':'xx-large', 'text-align':'center'}),               
+                            html.Div(dcc.Slider(id='slider_a', min=0, max=100, step=0.5, value=10, included=False, disabled=False, vertical=False, marks={
+                                        0: {'label': '0 °C', 'style': {'color': '#77b0b1', 'font-size':'large', 'white-space': 'nowrap', 'font-weight':'bold'}},
+                                        100: {'label': '2000 °C', 'style': {'color': '#f50', 'font-size':'large', 'white-space': 'nowrap', 'font-weight':'bold'}}}  ), style={'pointer-events':'none'})]),  ]),
 
-                        html.Div('00,00', id='last_value_to_indicate_a', style={'height': '80px', 'margin-bottom':10, 'margin-top':50, 'border-style': 'double', 'border-color': 'Gainsboro', 'border-width': '4px'}),
-                        html.Div(dcc.Slider(id='slider_a', min=0, max=100, step=0.5, value=10, included=False, disabled=False, marks={
-                                    0: {'label': '0 °C', 'style': {'color': '#77b0b1', 'font-size':'large', 'white-space': 'nowrap', 'font-weight':'bold'}},
-                                    100: {'label': '2000 °C', 'style': {'color': '#f50', 'font-size':'large', 'white-space': 'nowrap', 'font-weight':'bold'}}}  ), style={'pointer-events':'none'}),
-                        html.Div('00,00', id='last_value_to_indicate_b', style={'height': '80px', 'margin-bottom':10, 'margin-top':20, 'border-style': 'double', 'border-color': 'Gainsboro', 'border-width': '4px'}),  #'display':'table-cell','vertical-align':'middle', 'width':'300px',
-                        dcc.Slider(id='slider_b', min=0, max=100, step=0.5, value=10, included=False, disabled=False, marks={
-                                    0: {'label': '0 °C', 'style': {'color': '#77b0b1', 'font-size':'large', 'white-space': 'nowrap', 'font-weight':'bold'}},
-                                    100: {'label': '2000 °C', 'style': {'color': '#f50', 'font-size':'large', 'white-space': 'nowrap', 'font-weight':'bold'}}}   ),
-                        html.Div('Channel A:', style={'margin-top':25}),
-                        dcc.Dropdown(           options=channels()[1:21], 
-                                                value=config['cockpit']['data_to_show_a'], style={'width': '100%', 'margin-left':0, 'margin-bottom':10}, clearable=False, searchable=False,
-                                                id='channel_to_monitor_a'),
-                        html.Div('Channel B:'),
-                        dcc.Dropdown(           options=channels(), 
-                                                value=config['cockpit']['data_to_show_b'], style={'width': '100%', 'margin-left':0, 'margin-bottom':10}, clearable=False, searchable=False,
-                                                id='channel_to_monitor_b'),
-                        html.Div('Period of time to monitor:'),
-                        dcc.Dropdown(options=[ 
-                                                    {'label': 'One hour',   'value': '1_hour'},
-                                                    {'label': 'Three hours','value': '3_hours'},
-                                                    {'label': '12 hours',   'value': '12_hours'},
-                                                    {'label': '24 hours',   'value': '24_hours'},
-                                                    {'label': 'Three days', 'value': '3_days'}
-                                                    ], 
-                                                value='1_hour', style={'width': '100%', 'margin-left':0, 'margin-bottom':10}, clearable=False, searchable=False,
-                                                id='zzz')
+                
+                dbc.Col(width=3, style={'text-align':'left'}, children=[   
+                        html.Div(style={'margin-top':30, 'padding':15}, children=[
+                            dbc.Row(style={'margin-top':0}, no_gutters=True, children=[
+                                        dbc.Col(width=12, children=[
+                                                            dcc.Dropdown(   options=[{ **item, 'label': item['label'].replace('Analog Input', 'AI').replace('Analog Output', 'AO').replace('(', '- ').replace(')', '')} for item in channels()[0:21]], 
+                                                                            value=config['cockpit']['data_to_show_b'], style={'width': '100%', 'margin-left':0, 'margin-top':0, 'margin-bottom':0, 'font-weight':'bold'}, clearable=False, searchable=False,
+                                                                            id='channel_to_monitor_b')])]),
+                            html.Div('--,--', id='last_value_to_indicate_b', style={    'height': '60px', 'width': '100%', 'margin-bottom':10, 'margin-top':10,
+                                                                                        'border-style': 'double', 'border-color': 'Gainsboro', 'border-width': '4px',
+                                                                                        'font-weight':'bold','font-size':'xx-large', 'text-align':'center'}),               
+                            html.Div(dcc.Slider(id='slider_b', min=0, max=100, step=0.5, value=10, included=False, disabled=False, marks={
+                                        0: {'label': '0 °C', 'style': {'color': '#77b0b1', 'font-size':'large', 'white-space': 'nowrap', 'font-weight':'bold'}},
+                                        100: {'label': '2000 °C', 'style': {'color': '#f50', 'font-size':'large', 'white-space': 'nowrap', 'font-weight':'bold'}}}  ), style={'pointer-events':'none'})]),  ]),
 
-                                            ]),
+                dbc.Col(width=3, style={'text-align':'left'}, children=[   
+                        html.Div(style={'margin-top':30, 'padding':15}, children=[
+                            dbc.Row(style={'margin-top':0}, no_gutters=True, children=[
+                                        dbc.Col(width=12, children=[
+                                                            dcc.Dropdown(   options=[{ **item, 'label': item['label'].replace('Analog Input', 'AI').replace('Analog Output', 'AO').replace('(', '- ').replace(')', '')} for item in channels()[0:21]], 
+                                                                            value=config['cockpit']['data_to_show_c'], style={'width': '100%', 'margin-left':0, 'margin-top':0, 'margin-bottom':0, 'font-weight':'bold'}, clearable=False, searchable=False,
+                                                                            id='channel_to_monitor_c')])]),
+                            html.Div('--,--', id='last_value_to_indicate_c', style={    'height': '60px', 'width': '100%', 'margin-bottom':10, 'margin-top':10,
+                                                                                        'border-style': 'double', 'border-color': 'Gainsboro', 'border-width': '4px',
+                                                                                        'font-weight':'bold','font-size':'xx-large', 'text-align':'center'}),               
+                            html.Div(dcc.Slider(id='slider_c', min=0, max=100, step=0.5, value=10, included=False, disabled=False, marks={
+                                        0: {'label': '0 °C', 'style': {'color': '#77b0b1', 'font-size':'large', 'white-space': 'nowrap', 'font-weight':'bold'}},
+                                        100: {'label': '2000 °C', 'style': {'color': '#f50', 'font-size':'large', 'white-space': 'nowrap', 'font-weight':'bold'}}}  ), style={'pointer-events':'none'})]),   ]),
+                
+                
+                dbc.Col(width=3, style={'text-align':'left'}, children=[   
+                        html.Div(style={'margin-top':30, 'padding':15}, children=[
+                            dbc.Row(style={'margin-top':0}, no_gutters=True, children=[
+                                        dbc.Col(width=12, children=[
+                                                            dcc.Dropdown(   options=[{ **item, 'label': item['label'].replace('Analog Input', 'AI').replace('Analog Output', 'AO').replace('(', '- ').replace(')', '')} for item in channels()[0:21]], 
+                                                                            value=config['cockpit']['data_to_show_d'], style={'width': '100%', 'margin-left':0, 'margin-top':0, 'margin-bottom':0, 'font-weight':'bold'}, clearable=False, searchable=False,
+                                                                            id='channel_to_monitor_d')])]),
+                            html.Div('--,--', id='last_value_to_indicate_d', style={    'height': '60px', 'width': '100%', 'margin-bottom':10, 'margin-top':10,
+                                                                                        'border-style': 'double', 'border-color': 'Gainsboro', 'border-width': '4px',
+                                                                                        'font-weight':'bold','font-size':'xx-large', 'text-align':'center'}),               
+                            html.Div(dcc.Slider(id='slider_d', min=0, max=100, step=0.5, value=10, included=False, disabled=False, marks={
+                                        0: {'label': '0 °C', 'style': {'color': '#77b0b1', 'font-size':'large', 'white-space': 'nowrap', 'font-weight':'bold'}},
+                                        100: {'label': '2000 °C', 'style': {'color': '#f50', 'font-size':'large', 'white-space': 'nowrap', 'font-weight':'bold'}}}  ), style={'pointer-events':'none'})]),   ]),
 
-                dbc.Col(width=8, children=[ dbc.Row(dcc.Graph(id='live-chart', figure=fig, config={'displayModeBar': True, "displaylogo": False,'modeBarButtonsToRemove': ['lasso2d']}, style={'height': 600, 'width': '100%'}))])
-                                                ]),
+                ]),
+
+            dbc.Row(style={'min-height':60}, no_gutters=True ,children=[  
+                dbc.Col(
+
+                    html.Div(style={ 'position': 'relative', 'display': 'inline-block', 'width': '100%'}, children=[
+                        html.Div(dcc.Graph(id='live-chart-a', figure=fig, config={'displayModeBar': False, "displaylogo": False,'modeBarButtonsToRemove': ['lasso2d']}, style={'height': 300, 'margin-top':3, 'width': '100%'})), 
+                        html.Div(dcc.Dropdown(   options=[{ **item, 'label': item['label'].replace('Analog Input', 'AI').replace('Analog Output', 'AO').replace('(', '- ').replace(')', '')} for item in channels()[0:21]], 
+                                    value=config['cockpit']['data_to_show_a_graph'], clearable=False, searchable=False,
+                                    id='channel_to_monitor_a_graph'), style={'text-align':'left', 'font-weight':'bold', 'width': 450 , 'position': 'absolute', 'left':80, 'top':3} )
+                                    
+                                    ]), 
+
+                    width=6),
+                
+                dbc.Col(
+
+                    html.Div(style={ 'position': 'relative', 'display': 'inline-block', 'width': '100%'}, children=[
+                        html.Div(dcc.Graph(id='live-chart-b', figure=fig, config={'displayModeBar': False, "displaylogo": False,'modeBarButtonsToRemove': ['lasso2d']}, style={'height': 300, 'margin-top':3, 'width': '100%'})),
+                        html.Div(dcc.Dropdown(   options=[{ **item, 'label': item['label'].replace('Analog Input', 'AI').replace('Analog Output', 'AO').replace('(', '- ').replace(')', '')} for item in channels()[0:21]], 
+                                    value=config['cockpit']['data_to_show_b_graph'], clearable=False, searchable=False,
+                                    id='channel_to_monitor_b_graph'), style={'text-align':'left', 'font-weight':'bold', 'width': 450 , 'position': 'absolute', 'left':80, 'top':3})
+                                    
+                                    ]), 
+
+                    width=6)    ]),
+
                                 ]),
-        html.Div('PRODUCT NAME', style={'font-weight':'bold','font-size':'x-large', 'position': 'absolute', 'left':25, 'top':13})
-                                ], style={'position': 'relative', 'display': 'inline-block'}), className="mt-3")
+        
+        
+
+        html.Div('Period of time to monitor (graphs): ', style={'position': 'absolute', 'left':690, 'top':15}),
+        html.Div(children=[
+            dcc.Dropdown(   options=[ 
+                                    {'label': 'One hour',   'value': '1_hour'},
+                                    {'label': 'Three hours','value': '3_hours'},
+                                    {'label': '12 hours',   'value': '12_hours'},
+                                    {'label': '24 hours',   'value': '24_hours'},
+                                    {'label': 'Three days', 'value': '3_days'},
+                                    {'label': 'Seven days', 'value': '7_days'}
+                                    ], value=config['cockpit']['period_to_monitor_a_graph'], style={'width': 273}, clearable=False, searchable=False, id='period_to_monitor'),
+            ], style={'margin-left':0, 'position': 'absolute', 'left':953, 'top':15}),
+        html.Div('APPLICATION', style={'font-weight':'bold','font-size':'x-large', 'position': 'absolute', 'left':25, 'top':13})
+
+            ], style={'position': 'relative', 'display': 'inline-block'}), className="mt-3")
 
     return tab0_content
 
@@ -179,6 +285,11 @@ def tab1_content():
 
 def db_browser_content():
     inputs_to_show_list = [chunk.strip(None) for chunk in config['db_browser']['list_of_inputs'].split(',')]
+    
+    lock.acquire()
+    list_of_dates_in_db = db_reader_a.get_dates_list()
+    lock.release()
+
 
     global fig
     browser_content = dbc.Card(
@@ -194,13 +305,17 @@ def db_browser_content():
                             dbc.Col(html.Div(children = [
                                 #dbc.Button(className="mb-3", id = 'button_reload_tables', children=["Reload", html.Br(),"data base"], color="primary", size="sm", style={'min-width': '90px'}),
                                 #dbc.Button(className="mb-3 ml-1", id = 'button_delete_selected', children=["Delete", html.Br(),"selected"], color="danger", size="sm", style={'min-width': '90px'}),
-                                html.Div(dash_table.DataTable(id='table', columns=[{"name": "Day Tables in db:", "id": "tabels_in_db"}], 
+                                html.Div(dash_table.DataTable(id='table_list_of_days', columns=[{"name": "Day Tables in db:", "id": "tabels_in_db"}], 
                                         selected_cells = [{'row': 0, 'column': 0, 'column_id': 'tabels_in_db'}],
-                                        data=[{"tabels_in_db": i} for i in get_tables_list()],
+                                        data=[{"tabels_in_db": i} for i in reversed(list_of_dates_in_db)],
                                         fixed_rows={ 'headers': True, 'data': 0 },
                                         style_table={'maxHeight': '200px', 'cursor':'auto'},
                                         style_cell={'textAlign': 'center', 'font-size':'140%'},
-                                        style_as_list_view=True), className="pl-0 pr-0")]), width=3),      
+                                        style_as_list_view=True), className="pl-0 pr-0")
+                                        
+                                        
+                                        
+                                        ]), width=3),      
                             dbc.Col(html.Div(style={'margin-left':16}, children = [
                                             dbc.Row(children=[
                                                 dbc.Col(children=[                                                    
@@ -300,6 +415,7 @@ def settings_content():
                         html.Div(id='hidden-div-2', style={'display':'none'}), # used for callbacks without any output
                         html.Div(id='hidden-div-3', style={'display':'none'}),
                         html.Div(id='hidden-div-4', style={'display':'none'}), # used for callbacks without any output
+                        html.Div(id='hidden-div-5', style={'display':'none'}),
                         content_1]
 
     # Content of 'MATRIX'. 
@@ -359,16 +475,17 @@ def settings_content():
        
     # Content of 'Analog Outputs'.
     def ao_n_settings_block(n):
-        if config['AO'][f'ao_{n}_active']=='True':
-            value_active = ['True']
-        else:
-            value_active = []
+        # if config['AO'][f'ao_{n}_active']=='True':
+        #     value_active = ['True']
+        # else:
+        #     value_active = []
         return dbc.Col(className='pr-2', children=[   
                     dbc.Card(color='light', outline=True, inverse=False, id=f'AO_{n}_card', children=[
 
                         dbc.Row(no_gutters=True, children=[
                             dbc.Col(dbc.Input(id=f"AO_{n}_description", value=config['AO'][f'AO_{n}_description'].replace('%%', '%'), placeholder="Enter channel name ... ", type="text", disabled=True,  className="mb-2"), width=9),
-                            dbc.Col(dcc.Checklist(options=[{'label': f' AO {n}', 'value': 'True', 'disabled':True}], value=value_active, id=f'AO_{n}_active'), style={'text-align': 'right', 'font-weight': 'bold'}, width=3)]),
+                            dbc.Col(html.Div(f'AI {n}', id=f'AO_{n}_active'), style={'text-align': 'right', 'font-weight': 'bold'}, width=3)]),
+                            #dbc.Col(dcc.Checklist(options=[{'label': f' AO {n}', 'value': 'True', 'disabled':True}], value=value_active, id=f'AO_{n}_active'), style={'text-align': 'right', 'font-weight': 'bold'}, width=3)]),
 
                         dbc.Row(children=[  
                             dbc.Col(dbc.Input(id=f"AO_{n}_source_low", placeholder="...", value=config['AO'][f'AO_{n}_target_low'], inputMode='numeric', type='text'), width=3), # AO sourse low
@@ -410,6 +527,9 @@ def settings_content():
         value=config['db_browser']['local_time_zone'], clearable=False, id = 'dropdown_zime_zone') 
     content_date_time = html.Div(dropdown_zime_zone, style={'min-height': '300px', 'text-align':'left'}, className='mt-3')
 
+    # Content of 'General Info'
+    content_info = html.Div('Contennt of General Information', id='cpu_temp')
+
 
     tab_settings_label_style = {"color": "#007bff", "cursor": "pointer", "font-size": "large"} 
     settings_content = dbc.Card(
@@ -417,7 +537,8 @@ def settings_content():
                                     dbc.Tab(content_ai, label="Analog Inputs", tab_id='tab_ai', label_style=tab_settings_label_style),
                                     dbc.Tab(content_mx, label="MATRIX", tab_id='tab_mx', label_style=tab_settings_label_style),
                                     dbc.Tab(content_ao, label="Analog Outputs", tab_id='tab_ao', label_style=tab_settings_label_style),
-                                    dbc.Tab(content_date_time, label="Date and Time", tab_id='tab_dt', label_style=tab_settings_label_style, disabled=False)
+                                    dbc.Tab(content_date_time, label="Date and Time", tab_id='tab_dt', label_style=tab_settings_label_style, disabled=False),
+                                    dbc.Tab(content_info, label='General information', tab_id='tab_info', label_style=tab_settings_label_style, disabled=False)
                                 ])), className="mt-3", style={'padding-top':'0px'})
 
     return settings_content 
@@ -426,14 +547,15 @@ def settings_content():
 #---------------------------------------------
 app = dash.Dash(__name__)
 app.title='Matrix'
-server = app.server
+server = app.server #### used for Gunicorn / run from command line: gunicorn -w 1 --threads 9 -b 0.0.0.0:5002 dash_main:server / number of threads is = number of CPU * 2 + 1
 
 def serve_layout():
-    tab_label_style = {"color": "#00AEF9", "cursor": "pointer", "font-size": "large"} 
+
+    tab_label_style = {"color": "#00AEF9", "cursor": "pointer", "font-size": "large"}   
     return html.Div(html.Div(className="pl-2 pr-2 pt-2 pb-2", children=[
         html.Div(children=[dbc.Row(justify="between", align="center",className="pt-2 ml-0 mr-0", style={'background-color':'LightSkyBlue', 'border-radius':'5px'}, children=[
                                 dbc.Col(children=[html.H6(html.Div(children = ["L O G O"], className="pt-2 pb-2 pl-2 pr-2", style={'text-align': 'left'}), style={'text-align': 'left'})], width=2),
-                                dbc.Col(html.Div("One of three columns", className="mb-2"), width=4),
+                                dbc.Col(html.Div("One of three columns", className="mb-2", id='top_bar', tabIndex='-1', style={'outline': 'none'}), width=4),
                                 dbc.Col(children=[html.H6(html.Div(id="date_time_notification", children = ["Date and Time"], className="pt-2 pb-2 pl-2 pr-2", style={'text-align': 'left'}))], style={ 'max-width': '170px', 'min-width': '170px'})
                                 ])], className="mb-2 ml-0 mr-0"),
         dbc.Tabs(id='main_tabs', active_tab='tab-0' , children=[   
@@ -452,7 +574,7 @@ def serve_layout():
                 ])], style={"width": "1280px", 'display': 'inline-block'}), style={"width": "100%", 'text-align': 'center'})
 
 app.layout = serve_layout
-# Heads up! You need to write app.layout = serve_layout not app.layout = serve_layout(). That is, define app.layout to the actual function instance.
+#### Heads up! You need to write app.layout = serve_layout not app.layout = serve_layout(). That is, define app.layout to the actual function instance.
 
 
 
@@ -477,102 +599,408 @@ def set_slider_value_a(value_b):
     return value_b
 
 
-#----------updates last value in Cockpit-------------------------
-@app.callback(  [Output('last_value_to_indicate_a', 'children'), Output('last_value_to_indicate_b', 'children')],
+#----------updates last values in Cockpit-------------------------
+@app.callback(  [Output('last_value_to_indicate_a', 'children'), Output('last_value_to_indicate_b', 'children'), Output('last_value_to_indicate_c', 'children'), Output('last_value_to_indicate_d', 'children')],
                 [Input('interval-component_1', 'n_intervals')],
-                [State('channel_to_monitor_a', 'value'), State('channel_to_monitor_b', 'value')]) 
-def update_last_values(n, channel_to_monitor_a, channel_to_monitor_b):
+                [State('channel_to_monitor_a', 'value'), State('channel_to_monitor_b', 'value'), State('channel_to_monitor_c', 'value'), State('channel_to_monitor_d', 'value')]) 
+def update_last_values(n, channel_to_monitor_a, channel_to_monitor_b, channel_to_monitor_c, channel_to_monitor_d):
     # last_average_value = str(round((np.average(df_append[1].values)),2))
     url = 'http://localhost:5001/get_last_measurement'
     x = requests.get(url)
     
     last_values = x.json()
-    values_names = ['input_1', 'input_2', 'input_3', 'input_4', 'input_5', 'input_6', 'input_7', 'input_6',
+    values_names = ['input_1', 'input_2', 'input_3', 'input_4', 'input_5', 'input_6', 'input_7', 'input_8',
                     'in_1_calculated', 'in_2_calculated', 'in_3_calculated', 'in_4_calculated', 'in_5_calculated', 'in_6_calculated', 'in_7_calculated', 'in_8_calculated',
                     'output_1', 'output_2', 'output_3', 'output_4']
+    
+    units_list = {  'input_1':'mA', 'input_2':'mA', 'input_3':'mA', 'input_4':'mA', 'input_5':'mA', 'input_6':'mA', 'input_7':'mA', 'input_8':'mA',
+                    'in_1_calculated': config['AI']['ai_1_units'], 'in_2_calculated': config['AI']['ai_2_units'], 'in_3_calculated': config['AI']['ai_3_units'], 'in_4_calculated': config['AI']['ai_4_units'],
+                    'in_5_calculated': config['AI']['ai_5_units'], 'in_6_calculated': config['AI']['ai_6_units'], 'in_7_calculated': config['AI']['ai_7_units'], 'in_8_calculated': config['AI']['ai_8_units'],
+                    'output_1':config['AO']['ao_1_units'], 'output_2':config['AO']['ao_2_units'], 'output_3':config['AO']['ao_3_units'], 'output_4':config['AO']['ao_4_units']}
+   
+    if last_values[values_names.index(config['cockpit']['data_to_show_a'])] != 'NULL':
+        units_a = units_list[config['cockpit']['data_to_show_a']]
+        last_value_a = dbc.Row(no_gutters=True, children=[
+            dbc.Col('%.2f' % round(last_values[values_names.index(config['cockpit']['data_to_show_a'])], 2), width=9),
+            dbc.Col(units_a, width=3, style={'font-size':'large', 'text-align':'left'} )
+            ])
+    else: last_value_a = 'No data'
+    
+    
+    if config['cockpit']['data_to_show_b'] != 'empty' and last_values[values_names.index(config['cockpit']['data_to_show_b'])] != 'NULL':
+        units_b = units_list[config['cockpit']['data_to_show_b']]
+        last_value_b = dbc.Row(no_gutters=True, children=[
+            dbc.Col('%.2f' % round(last_values[values_names.index(config['cockpit']['data_to_show_b'])], 2), width=9),
+            dbc.Col(units_b, width=3, style={'font-size':'large', 'text-align':'left'} )
+            ])
+    else: last_value_b = '--,--'
 
-    last_value_a = str(round(last_values[values_names.index(config['cockpit']['data_to_show_a'])], 2))
-    print(config['cockpit']['data_to_show_b'])
-    if config['cockpit']['data_to_show_b'] != 'empty':
-        last_value_b = str(round(last_values[values_names.index(config['cockpit']['data_to_show_b'])], 2))
-    else: last_value_b = '---'
+    if config['cockpit']['data_to_show_c'] != 'empty' and last_values[values_names.index(config['cockpit']['data_to_show_c'])] != 'NULL':
+        units_c = units_list[config['cockpit']['data_to_show_c']]
+        last_value_c = dbc.Row(no_gutters=True, children=[
+            dbc.Col('%.2f' % round(last_values[values_names.index(config['cockpit']['data_to_show_c'])], 2), width=9),
+            dbc.Col(units_c, width=3, style={'font-size':'large', 'text-align':'left'} )
+            ])
+    else: last_value_c = '--,--'
 
-    return [last_value_a, last_value_b]
+    if config['cockpit']['data_to_show_d'] != 'empty' and last_values[values_names.index(config['cockpit']['data_to_show_d'])] != 'NULL':
+        units_d = units_list[config['cockpit']['data_to_show_d']]
+        last_value_d = dbc.Row(no_gutters=True, children=[
+            dbc.Col('%.2f' % round(last_values[values_names.index(config['cockpit']['data_to_show_d'])], 2), width=9),
+            dbc.Col(units_d, width=3, style={'font-size':'large', 'text-align':'left'} )
+            ])
+    else: last_value_d = '--,--'
+
+
+    return [last_value_a, last_value_b, last_value_c, last_value_d]
 
 
 
-#----------updates live chart in Cockpit-------------------------
-@app.callback(  [Output("live-chart", "figure")],
-                [Input('interval-component_20', 'n_intervals'), Input('channel_to_monitor_a', 'value')],
-                [State('main_tabs', 'active_tab'), State('live-chart', 'figure')]) 
-def update_graph_live(n, channel_to_monitor_a,  active_tab, figure_state):
+#--A------update live chart A in Cockpit, Store + client side calback-------
+
+@app.callback(  Output('store_to_append_a_graph', 'data'),
+                [Input('interval-component_60', 'n_intervals')],
+                [State('main_tabs', 'active_tab'), State('state_a_graph', 'data')]) 
+def update_graph_live(n, active_tab, state_a_graph):  
+    
+ 
     if active_tab == 'tab-0':
-        print ('updating live chart...')
-        global time_of_last_point_in_chart
-        global df
-        global data_to_show_a 
+
+        #global time_of_last_point_in_chart_a_graph
+        global data_to_show_a_graph, period_to_monitor_a_graph
+
+        
+
+        dict_of_periods =        {'1_hour':1, '3_hours':3, '12_hours':12, '24_hours':24, '3_days':72, '7_days':168}         # hours
+        dict_of_smapling_times = {'1_hour':1, '3_hours':3, '12_hours':10, '24_hours':25, '3_days':60, '7_days':160}         # seconds
+
+        hours = int(dict_of_periods[config['cockpit']['period_to_monitor_a_graph']])
+        period = dict_of_smapling_times[config['cockpit']['period_to_monitor_a_graph']]
 
 
-        current_time = datetime.datetime.utcnow()
+        logging.info(state_a_graph)
+
+        current_time_a = datetime.datetime.utcnow()
+        if state_a_graph == None:
+            time_of_last_point_in_chart_a_graph = current_time_a - datetime.timedelta(hours=hours)
+        else: time_of_last_point_in_chart_a_graph = (datetime.datetime.strptime(state_a_graph[1], '%Y-%m-%d %H:%M:%S'))  
 
 
-        if config['cockpit']['data_to_show_a'] != data_to_show_a:
+        
+        if config['cockpit']['data_to_show_a_graph'] != data_to_show_a_graph or config['cockpit']['period_to_monitor_a_graph'] != period_to_monitor_a_graph or state_a_graph == None:
             lock.acquire()
-            df_append_a = db_reader_b.get_data_generic('date_time_utc', [config['cockpit']['data_to_show_a']], (current_time - datetime.timedelta(hours=1)).strftime("%Y_%m_%d %H:%M:%S"), current_time.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = '1')
+            print ('updating live chart a...')
+            df_to_append_a = db_reader_b.get_data_generic__('date_time_utc', [config['cockpit']['data_to_show_a_graph']], (current_time_a - datetime.timedelta(hours=hours)).strftime("%Y_%m_%d %H:%M:%S"), current_time_a.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = period)
             lock.release()
-            data_to_show_a = config['cockpit']['data_to_show_a']
+            data_to_show_a_graph = config['cockpit']['data_to_show_a_graph']
+            period_to_monitor_a_graph = config['cockpit']['period_to_monitor_a_graph']
+            new_data_falg = 'True'
+            
+            
         else: 
             lock.acquire()
-            df_append_a = db_reader_b.get_data_generic('date_time_utc', [config['cockpit']['data_to_show_a']], (time_of_last_point_in_chart + datetime.timedelta(seconds=1)).strftime("%Y_%m_%d %H:%M:%S"), current_time.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = '1')
+            print ('updating live chart a...')
+            df_to_append_a = db_reader_b.get_data_generic__('date_time_utc', [config['cockpit']['data_to_show_a_graph']], (time_of_last_point_in_chart_a_graph + datetime.timedelta(seconds=1)).strftime("%Y_%m_%d %H:%M:%S"), current_time_a.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = period)
             lock.release()
+            new_data_falg = 'False'
+            
+            
 
-        # if config['cockpit']['data_to_show_a'] != 'empty':
-        #     lock.acquire()
-        #     df_append_b = db_reader_b.get_data_generic('date_time_utc', [config['cockpit']['data_to_show_b']], (time_of_last_point_in_chart + datetime.timedelta(seconds=1)).strftime("%Y_%m_%d %H:%M:%S"), current_time.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = '1')
-        #     lock.release()
-        # else: pass
+
+        # time_of_last_point_in_chart_a_graph = current_time_a
+
+        if df_to_append_a.empty:
+            fig = go.Figure(data=go.Scattergl(mode='lines+markers', line=dict(color='#1E90FF', width=4, dash='dot'), x=[], y=[]))
+        else:
+            fig = go.Figure(data=go.Scattergl(mode='lines+markers', line=dict(color='#1E90FF', width=4, dash='dot'), x=df_to_append_a[0], y=df_to_append_a[1]))
+        
+
+        datetime_list_of_strings = []
+        for item in fig['data'][0]['x']:
+            datetime_list_of_strings.append(item.strftime("%Y-%m-%d %H:%M:%S"))
+
+        logging.info([ datetime_list_of_strings, fig['data'][0]['y'], new_data_falg ])
+        return [ datetime_list_of_strings, fig['data'][0]['y'], new_data_falg ]
+
+    else: 
+        new_data_falg = 'False'
+        fig = go.Figure(data=go.Scattergl(mode='lines+markers', line=dict(color='#1E90FF', width=4, dash='dot'), x=[], y=[]))
+        datetime_list_of_strings = []
+        for item in fig['data'][0]['x']:
+            datetime_list_of_strings.append(item.strftime("%Y-%m-%d %H:%M:%S"))
+        
+        logging.info([ datetime_list_of_strings, fig['data'][0]['y'], new_data_falg ])
+        return  [ datetime_list_of_strings, fig['data'][0]['y'], new_data_falg ]
+
+#--B--- clientside -----  
+
+app.clientside_callback(
+    """
+    function(data_to_append, data_in_memory) { 
+
+
+        if (data_to_append[2] === 'True' || data_in_memory === undefined) {
+            data_x = data_to_append[0];
+            data_y = data_to_append[1];
+        } else {
+            data_x = data_in_memory[0].concat(data_to_append[0]);
+            data_x = data_x.slice(data_to_append[0].length, data_x.length)
+
+            data_y = data_in_memory[1].concat(data_to_append[1]);
+            data_y = data_y.slice(data_to_append[0].length, data_y.length)
+        } ;
+
+
+        return [data_x, data_y, data_to_append[2]]
+    }
+
+    """,
+    Output('memory_a_graph', 'data'),
+    [Input('store_to_append_a_graph', 'data')],
+    [State('memory_a_graph', 'data')]
+
+)
+
+#--C--- clientside -----  
+
+app.clientside_callback(
+    """
+    function(data, figure) { 
+ 
+        data_fig = figure['data'];
+        data_fig[0]['x'] = data[0];
+        data_fig[0]['y'] = data[1];
+
+        first_datetime = data[0][0];
+        last_datetime = data[0][data[0].length - 1];
+        state_a_graph = [first_datetime, last_datetime];
+                
+        console.log(state_a_graph); 
+
+        fig = {
+            'data': data_fig,
+            'layout': figure['layout']
+        }
+        
+        return [fig, state_a_graph]
+    }
+    """,
+    [Output('live-chart-a', "figure"), Output('state_a_graph', 'data')],
+    [Input('memory_a_graph', 'data')],
+    [State('live-chart-a', 'figure')]
+
+)
+
+
+
+
+
+
+
+
+
+
+
+
+#----------updates live charts in Cockpit-------------------------
+
+# @app.callback(  [Output("live-chart-a", "figure")],
+#                 [Input('interval-component_20', 'n_intervals')],            
+#                 [State('main_tabs', 'active_tab'), State('live-chart-a', 'figure')]) 
+# def update_graph_live(n, active_tab, figure_state):                         
+#     if active_tab == 'tab-0':
+        
+#         global time_of_last_point_in_chart_a_graph
+#         global df_a_graph
+#         global data_to_show_a_graph, period_to_monitor_a_graph
+
+#         current_time_a = datetime.datetime.utcnow()
+
+#         dict_of_periods =        {'1_hour':1, '3_hours':3, '12_hours':12, '24_hours':24, '3_days':72, '7_days':168}         # hours
+#         dict_of_smapling_times = {'1_hour':1, '3_hours':3, '12_hours':10, '24_hours':25, '3_days':60, '7_days':160}         # seconds
+
+#         hours = int(dict_of_periods[config['cockpit']['period_to_monitor_a_graph']])
+#         period = dict_of_smapling_times[config['cockpit']['period_to_monitor_a_graph']]
+        
+#         if config['cockpit']['data_to_show_a_graph'] != data_to_show_a_graph or config['cockpit']['period_to_monitor_a_graph'] != period_to_monitor_a_graph:
+#             df_a_graph = df_a_graph[df_a_graph.shape[0]:] 
+#             lock.acquire()
+#             print ('updating live chart a...')
+#             df_append_a = db_reader_b.get_data_generic__('date_time_utc', [config['cockpit']['data_to_show_a_graph']], (current_time_a - datetime.timedelta(hours=hours)).strftime("%Y_%m_%d %H:%M:%S"), current_time_a.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = period)
+#             lock.release()
+#             data_to_show_a_graph = config['cockpit']['data_to_show_a_graph']
+#             period_to_monitor_a_graph = config['cockpit']['period_to_monitor_a_graph']
+#         else: 
+#             lock.acquire()
+#             print ('updating live chart a...')
+#             df_append_a = db_reader_b.get_data_generic__('date_time_utc', [config['cockpit']['data_to_show_a_graph']], (time_of_last_point_in_chart_a_graph + datetime.timedelta(seconds=1)).strftime("%Y_%m_%d %H:%M:%S"), current_time_a.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = period)
+#             lock.release()
+        
+#         df_append = df_append_a
+#         df_a_graph = df_a_graph.append(df_append, ignore_index=True) 
+        
+#         time_filter_mask = df_a_graph[0] > datetime.datetime.utcnow() - datetime.timedelta(hours=hours)
+#         df_a_graph = df_a_graph[time_filter_mask]
+
+
+#         df_utc = []
+#         for i in df_a_graph.index:
+#             df_utc.append(timezone('UTC').localize(df_a_graph[0][i]))  
+#         df_local_time = []
+#         for i in df_utc:
+#             df_local_time.append(i.astimezone(timezone(config['db_browser']['local_time_zone'])))
 
         
-        df_append = df_append_a[0]
-        df = df.append(df_append, ignore_index=True) 
-        df = df[df_append.shape[0]:]    # deletes first rows
-
-        df_utc = []
-        for i in df.index:
-            df_utc.append(timezone('UTC').localize(df[0][i]))  
-        df_local_time = []
-        for i in df_utc:
-            df_local_time.append(i.astimezone(timezone(config['db_browser']['local_time_zone'])))
-
-        time_of_last_point_in_chart = current_time
-        fig = go.Figure(data=go.Scattergl(mode='lines+markers', line=dict(color='#1E90FF', width=4, dash='dot'), x=df_local_time, y=df[1]))
-        fig.update_layout(margin=dict(t=50))
-        return [fig]
-    else:
-        return [figure_state]
+#         descr_list = {  'empty':'...',
+#                         'input_1':'Raw input', 'input_2':'Raw input', 'input_3':'Raw input', 'input_4':'Raw input', 'input_5':'Raw input', 'input_6':'Raw input', 'input_7':'Raw input', 'input_8':'Raw input',
+#                         'in_1_calculated': config['AI']['ai_1_description'], 'in_2_calculated': config['AI']['ai_2_description'], 'in_3_calculated': config['AI']['ai_3_description'], 'in_4_calculated': config['AI']['ai_4_description'],
+#                         'in_5_calculated': config['AI']['ai_5_description'], 'in_6_calculated': config['AI']['ai_6_description'], 'in_7_calculated': config['AI']['ai_7_description'], 'in_8_calculated': config['AI']['ai_8_description'],
+#                         'output_1':config['AO']['ao_1_description'], 'output_2':config['AO']['ao_2_description'], 'output_3':config['AO']['ao_3_description'], 'output_4':config['AO']['ao_4_description']}
         
+#         units_list = {  'empty':'...',
+#                         'input_1':'mA', 'input_2':'mA', 'input_3':'mA', 'input_4':'mA', 'input_5':'mA', 'input_6':'mA', 'input_7':'mA', 'input_8':'mA',
+#                         'in_1_calculated': config['AI']['ai_1_units'], 'in_2_calculated': config['AI']['ai_2_units'], 'in_3_calculated': config['AI']['ai_3_units'], 'in_4_calculated': config['AI']['ai_4_units'],
+#                         'in_5_calculated': config['AI']['ai_5_units'], 'in_6_calculated': config['AI']['ai_6_units'], 'in_7_calculated': config['AI']['ai_7_units'], 'in_8_calculated': config['AI']['ai_8_units'],
+#                         'output_1':config['AO']['ao_1_units'], 'output_2':config['AO']['ao_2_units'], 'output_3':config['AO']['ao_3_units'], 'output_4':config['AO']['ao_4_units']}
+
+#         yaxix_name = descr_list[config['cockpit']['data_to_show_a_graph']] + ', ' + units_list[config['cockpit']['data_to_show_a_graph']]
+        
+#         time_of_last_point_in_chart_a_graph = current_time_a
+
+#         fig = go.Figure(data=go.Scattergl(mode='lines+markers', line=dict(color='#1E90FF', width=4, dash='dot'), x=df_local_time, y=df_a_graph[1]))
+#         fig.update_layout(margin=dict(t=50))
+#         fig['layout']['xaxis'].update(title='Date and Time', autorange=True)
+#         fig['layout']['yaxis'].update(title=yaxix_name, autorange=True)
+
+#         if config['cockpit']['data_to_show_a_graph'] == 'empty':
+#             fig = go.Figure(data=go.Scattergl(mode='lines+markers', line=dict(color='#1E90FF', width=4, dash='dot'), x=[0], y=[0]))
+#             fig.update_layout(margin=dict(t=50))
+#             fig['layout']['xaxis'].update(title='Not active', autorange=True)
+#             fig['layout']['yaxis'].update(title='Not active', autorange=True)
+#         else: pass
+
+
+#         return [fig]
+#     else:
+#         return [figure_state]
+
+
+
+# @app.callback(  [Output("live-chart-b", "figure")],
+#                 [Input('interval-component_20', 'n_intervals')],            
+#                 [State('main_tabs', 'active_tab'), State('live-chart-b', 'figure')]) 
+# def update_graph_live_b(n, active_tab, figure_state):                         
+#     if active_tab == 'tab-0':
+        
+#         global time_of_last_point_in_chart_b_graph
+#         global df_b_graph
+#         global data_to_show_b_graph, period_to_monitor_b_graph
+
+#         current_time_b = datetime.datetime.utcnow()
+
+#         dict_of_periods =        {'1_hour':1, '3_hours':3, '12_hours':12, '24_hours':24, '3_days':72, '7_days':168}         # hours
+#         dict_of_smapling_times = {'1_hour':1, '3_hours':3, '12_hours':10, '24_hours':25, '3_days':60, '7_days':160}         # seconds
+
+#         hours = int(dict_of_periods[config['cockpit']['period_to_monitor_b_graph']])
+#         period = dict_of_smapling_times[config['cockpit']['period_to_monitor_b_graph']]
+        
+#         if config['cockpit']['data_to_show_b_graph'] != data_to_show_b_graph or config['cockpit']['period_to_monitor_b_graph'] != period_to_monitor_b_graph:
+#             df_b_graph = df_b_graph[df_b_graph.shape[0]:] 
+#             lock.acquire()
+#             print ('updating live chart b...')
+#             df_append_a = db_reader_b.get_data_generic__('date_time_utc', [config['cockpit']['data_to_show_b_graph']], (current_time_b - datetime.timedelta(hours=hours)).strftime("%Y_%m_%d %H:%M:%S"), current_time_b.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = period)
+#             lock.release()
+#             data_to_show_b_graph = config['cockpit']['data_to_show_b_graph']
+#             period_to_monitor_b_graph = config['cockpit']['period_to_monitor_b_graph']
+#         else: 
+#             lock.acquire()
+#             print ('updating live chart b...')
+#             df_append_a = db_reader_b.get_data_generic__('date_time_utc', [config['cockpit']['data_to_show_b_graph']], (time_of_last_point_in_chart_b_graph + datetime.timedelta(seconds=1)).strftime("%Y_%m_%d %H:%M:%S"), current_time_b.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = period)
+#             lock.release()
+        
+#         df_append = df_append_a
+#         df_b_graph = df_b_graph.append(df_append, ignore_index=True) 
+        
+#         time_filter_mask = df_b_graph[0] > datetime.datetime.utcnow() - datetime.timedelta(hours=hours)
+#         df_b_graph = df_b_graph[time_filter_mask]
+
+
+#         df_utc = []
+#         for i in df_b_graph.index:
+#             df_utc.append(timezone('UTC').localize(df_b_graph[0][i]))  
+#         df_local_time = []
+#         for i in df_utc:
+#             df_local_time.append(i.astimezone(timezone(config['db_browser']['local_time_zone'])))
+
+        
+#         descr_list = {  'empty':'...',
+#                         'input_1':'Raw input', 'input_2':'Raw input', 'input_3':'Raw input', 'input_4':'Raw input', 'input_5':'Raw input', 'input_6':'Raw input', 'input_7':'Raw input', 'input_8':'Raw input',
+#                         'in_1_calculated': config['AI']['ai_1_description'], 'in_2_calculated': config['AI']['ai_2_description'], 'in_3_calculated': config['AI']['ai_3_description'], 'in_4_calculated': config['AI']['ai_4_description'],
+#                         'in_5_calculated': config['AI']['ai_5_description'], 'in_6_calculated': config['AI']['ai_6_description'], 'in_7_calculated': config['AI']['ai_7_description'], 'in_8_calculated': config['AI']['ai_8_description'],
+#                         'output_1':config['AO']['ao_1_description'], 'output_2':config['AO']['ao_2_description'], 'output_3':config['AO']['ao_3_description'], 'output_4':config['AO']['ao_4_description']}
+        
+#         units_list = {  'empty':'...',
+#                         'input_1':'mA', 'input_2':'mA', 'input_3':'mA', 'input_4':'mA', 'input_5':'mA', 'input_6':'mA', 'input_7':'mA', 'input_8':'mA',
+#                         'in_1_calculated': config['AI']['ai_1_units'], 'in_2_calculated': config['AI']['ai_2_units'], 'in_3_calculated': config['AI']['ai_3_units'], 'in_4_calculated': config['AI']['ai_4_units'],
+#                         'in_5_calculated': config['AI']['ai_5_units'], 'in_6_calculated': config['AI']['ai_6_units'], 'in_7_calculated': config['AI']['ai_7_units'], 'in_8_calculated': config['AI']['ai_8_units'],
+#                         'output_1':config['AO']['ao_1_units'], 'output_2':config['AO']['ao_2_units'], 'output_3':config['AO']['ao_3_units'], 'output_4':config['AO']['ao_4_units']}
+
+#         yaxix_name = descr_list[config['cockpit']['data_to_show_b_graph']] + ', ' + units_list[config['cockpit']['data_to_show_b_graph']]
+        
+#         time_of_last_point_in_chart_b_graph = current_time_b
+#         fig = go.Figure(data=go.Scattergl(mode='lines+markers', line=dict(color='#1E90FF', width=4, dash='dot'), x=df_local_time, y=df_b_graph[1]))
+#         fig.update_layout(margin=dict(t=50))
+#         fig['layout']['xaxis'].update(title='Date and Time', autorange=True)
+#         fig['layout']['yaxis'].update(title=yaxix_name, autorange=True)
+
+#         if config['cockpit']['data_to_show_b_graph'] == 'empty':
+#             fig = go.Figure(data=go.Scattergl(mode='lines+markers', line=dict(color='#1E90FF', width=4, dash='dot'), x=[0], y=[0]))
+#             fig.update_layout(margin=dict(t=50))
+#             fig['layout']['xaxis'].update(title='Not active', autorange=True)
+#             fig['layout']['yaxis'].update(title='Not active', autorange=True)
+#         else: pass
+
+
+#         return [fig]
+#     else:
+#         return [figure_state]
+
+
+
+
+
 #--- Cockpit Settings-------------------------------------------
 @app.callback(  Output('hidden-div-4', 'children'),
-                [Input('channel_to_monitor_a', 'value'), Input('channel_to_monitor_b', 'value')]) 
-def cockpit_settings(channel_to_monitor_a, channel_to_monitor_b):
+                [Input('channel_to_monitor_a', 'value'), Input('channel_to_monitor_b', 'value'), Input('channel_to_monitor_c', 'value'), Input('channel_to_monitor_d', 'value'),
+                Input('channel_to_monitor_a_graph', 'value'), Input('channel_to_monitor_b_graph', 'value'),
+                Input('period_to_monitor', 'value')])   
+def cockpit_settings(channel_to_monitor_a, channel_to_monitor_b, channel_to_monitor_c, channel_to_monitor_d,
+                       channel_to_monitor_a_graph, channel_to_monitor_b_graph,
+                       period_to_monitor):
     config['cockpit']['data_to_show_a'] = channel_to_monitor_a
     config['cockpit']['data_to_show_b'] = channel_to_monitor_b
+    config['cockpit']['data_to_show_c'] = channel_to_monitor_c
+    config['cockpit']['data_to_show_d'] = channel_to_monitor_d
+    config['cockpit']['data_to_show_a_graph'] = channel_to_monitor_a_graph
+    config['cockpit']['data_to_show_b_graph'] = channel_to_monitor_b_graph
+    config['cockpit']['period_to_monitor_a_graph'] = period_to_monitor
+    config['cockpit']['period_to_monitor_b_graph'] = period_to_monitor
     write_config()
-
-
-
 
 
 # Browser-------------------------------------
 #--------This loads day chart in the db_browser
+
 @app.callback(  [Output("day_chart", "figure"), Output('download_selected_data', 'href'), Output('download_selected_data', 'children')], 
-                [Input("table", "selected_cells"), Input('button_load_curves', 'n_clicks')], 
-                [State("table", "data"), State('days_and_points_in_chart', 'value'), State('lines_markers', 'value'),
+                [Input("table_list_of_days", "selected_cells"), Input('button_load_curves', 'n_clicks')], 
+                [State("table_list_of_days", "data"), State('days_and_points_in_chart', 'value'), State('lines_markers', 'value'),
                 State('channel_to_show_a', 'value'), State('channel_to_show_b', 'value'), State('channel_to_show_c', 'value'), State('channel_to_show_d', 'value'),
                 State('channel_to_show_a', 'options')])
 def current_cell(   selected_cell, button_load_curves_input, data, days_and_points_in_chart_state, lines_markers_state,
                     channel_to_show_a_state, channel_to_show_b_state, channel_to_show_c_state, channel_to_show_d_state,
                     channel_to_show_a_options):
+    
+    
     
     dropdowns_list = [channel_to_show_a_state, channel_to_show_b_state, channel_to_show_c_state, channel_to_show_d_state]
     # Remove all 'empty' elements
@@ -599,13 +1027,26 @@ def current_cell(   selected_cell, button_load_curves_input, data, days_and_poin
         start_time = date_in_cell - datetime.timedelta(hours=60)
         end_time = date_in_cell + datetime.timedelta(hours=36)
 
+    #-----------------
     lock.acquire()
+    print ('updating day chart in browser...')
     try: 
-        df_b = db_reader_a.get_data_generic('date_time_utc', list_of_inputs_state, start_time.strftime('%Y_%m_%d %H:%M:%S') , end_time.strftime('%Y_%m_%d %H:%M:%S'), fetch_every_n_sec = fetch_sec_state) # df_b is list of pandas frames
+        df_bbb = db_reader_a.get_data_generic__('date_time_utc', list_of_inputs_state, start_time.strftime('%Y_%m_%d %H:%M:%S'), end_time.strftime('%Y_%m_%d %H:%M:%S'), fetch_every_n_sec = fetch_sec_state) # df_b is list of pandas frames
         lock.release()
     except:
         lock.release()
-    
+
+    df_1 = [df_bbb[[0,1]]]
+    try:df_2 = [df_bbb[[0,2]].rename(columns={2:1})] 
+    except: df_2 = []
+    try: df_3 = [df_bbb[[0,3]].rename(columns={3:1})] 
+    except: df_3 = []
+    try: df_4 = [df_bbb[[0,4]].rename(columns={4:1})] 
+    except: df_4 = []  
+
+    df_b = df_1 + df_2 + df_3 + df_4
+    #----------------- 
+
     df = df_b[0]
     df_utc = []
     for i in df.index:
@@ -621,7 +1062,7 @@ def current_cell(   selected_cell, button_load_curves_input, data, days_and_poin
     
     data = {'Date and Time': df_local_time} 
     df_merged = pd.DataFrame(data) 
-    trace_colors = ['#119DFF', '#EA11FF', '#FF7311', '#26FF11']
+    trace_colors = ['#119DFF', '#EA11FF', '#FF7311', '#46cc37']    #26FF11
  
     yaxis_names = []
     for i in range (0, 4):
@@ -664,10 +1105,6 @@ def current_cell(   selected_cell, button_load_curves_input, data, days_and_poin
         try: yaxis_units.append(units_list[units_id.index(item)])
         except: yaxis_units.append('...')
 
-    # print (yaxis_names)
-    # print (yaxis_labels)
-    # print (yaxis_units)
-
     k = 0
     for i in df_b:     
         fig.add_trace(go.Scattergl(line=dict(color=trace_colors[list_of_channels[k]]), mode=lines_markers_state, yaxis=f"y{k+1}", name=list_of_inputs_state[k], x=df_local_time, y=i[1]))
@@ -693,24 +1130,16 @@ def current_cell(   selected_cell, button_load_curves_input, data, days_and_poin
 
     return fig, link_to_file, f'Download selected data: ' + file_name
 
+
 #------Link for download---------------
 @app.server.route('/download/<path:path>')
 def download(path):
     """Serve a file from the upload directory."""
     return send_file(f'download/{path}', mimetype='text/csv', attachment_filename=f'{path}', as_attachment=True)
 
-#--------Reload tables from db (db_browser)
-@app.callback(                                         
-    dash.dependencies.Output('table', 'data'),
-    [dash.dependencies.Input('button_reload_tables', 'n_clicks')])
-def update_output(n_clicks):
-    list_of_tables = get_tables_list()
-    data=[{"tabels_in_db": i} for i in list_of_tables]
-    return data
 
 
-
-#--Analog Inputs--------------------------------------------------
+#-------Analog Inputs--------------------------------------------------
 #-------Set target units of Analog Inputs -------------------------
 @app.callback(  [Output("AI_1_units_a", "children"), Output('AI_1_units_b', 'children')],
                 [Input("AI_1_units", "value")])
@@ -955,7 +1384,7 @@ def set_active_8(active_value):
 
 
 
-#---Analog Outputs---------------------------------------------------
+#------Analog Outputs------------------------------------------------
 #------Update Config / Analog Output Settings------------------------
 @app.callback(  Output('hidden-div-3', 'children'),
                 [Input('save_AO_settings', 'n_clicks'), Input('save_AO_settings_', 'n_clicks')], 
@@ -1066,11 +1495,11 @@ def update_output_units_1(  description_1_, description_2_, description_3_, desc
 
 
 
-#---Model----------------------------------------------------------------
+#-------Model------------------------------------------------------------
 #------Set Analog Outputs of the MODEL - channel to be output to --------
 @app.callback(  [Output('model_output_a', 'options'), Output('model_output_b', 'options'), Output('model_output_c', 'options'), Output('model_output_d', 'options'),
-                Output('AO_1_card', 'color'), Output('AO_1_card', 'style'), Output('AO_1_active', 'value'), Output('AO_2_card', 'color'), Output('AO_2_card', 'style'), Output('AO_2_active', 'value'),
-                Output('AO_3_card', 'color'), Output('AO_3_card', 'style'), Output('AO_3_active', 'value'), Output('AO_4_card', 'color'), Output('AO_4_card', 'style'), Output('AO_4_active', 'value')], 
+                Output('AO_1_card', 'color'), Output('AO_1_card', 'style'), Output('AO_2_card', 'color'), Output('AO_2_card', 'style'), 
+                Output('AO_3_card', 'color'), Output('AO_3_card', 'style'), Output('AO_4_card', 'color'), Output('AO_4_card', 'style') ], 
                 [Input('model_output_a', 'value'), Input('model_output_b', 'value'), Input('model_output_c', 'value'), Input('model_output_d', 'value'),
                 Input('model_input_a', 'value'), Input('model_input_b', 'value'), Input('model_input_c', 'value'), Input('model_input_d', 'value'),
                 Input('model_input_e', 'value'), Input('model_input_f', 'value'), Input('model_input_g', 'value'), Input('model_input_h', 'value') ])
@@ -1119,36 +1548,47 @@ def set_model_output_list_a(value_a, value_b, value_c, value_d,
 
     if 'output_1' in j:
         config['AO']['AO_1_active'] = 'True'
-        active_marker_1 = ['primary', {'min-height': '250px', 'background-color':color}, ['True']]
+        active_marker_1 = ['primary', {'min-height': '250px', 'background-color':color}]
     else:
         config['AO']['AO_1_active'] = 'Flase'
-        active_marker_1 = ['', {'min-height': '250px'}, ['False']]
+        active_marker_1 = ['', {'min-height': '250px'}]
 
     if 'output_2' in j:
         config['AO']['AO_2_active'] = 'True'
-        active_marker_2 = ['primary', {'min-height': '250px', 'background-color':color}, ['True']]
+        active_marker_2 = ['primary', {'min-height': '250px', 'background-color':color}]
     else:
         config['AO']['AO_2_active'] = 'Flase'
-        active_marker_2 = ['', {'min-height': '250px'}, ['False']]
+        active_marker_2 = ['', {'min-height': '250px'}]
 
     if 'output_3' in j:
         config['AO']['AO_3_active'] = 'True'
-        active_marker_3 = ['primary', {'min-height': '250px', 'background-color':color}, ['True']]
+        active_marker_3 = ['primary', {'min-height': '250px', 'background-color':color}]
     else:
         config['AO']['AO_3_active'] = 'Flase'
-        active_marker_3 = ['', {'min-height': '250px'}, ['False']]
+        active_marker_3 = ['', {'min-height': '250px'}]
 
     if 'output_4' in j:
         config['AO']['AO_4_active'] = 'True'
-        active_marker_4 = ['primary', {'min-height': '250px', 'background-color':color}, ['True']]
+        active_marker_4 = ['primary', {'min-height': '250px', 'background-color':color}]
     else:
         config['AO']['AO_4_active'] = 'Flase'
-        active_marker_4 = ['', {'min-height': '250px'}, ['False']]
+        active_marker_4 = ['', {'min-height': '250px'}]
 
     write_config()
     
     return [channels_output_a, channels_output_b, channels_output_c, channels_output_d]  + active_marker_1  + active_marker_2 + active_marker_3 + active_marker_4
 
+
+#-----General Information------------------------
+@app.callback(  Output('cpu_temp', 'children'),
+                [Input('interval-component_5', 'n_intervals')]) 
+def update__gen_info(n):
+
+    stream = os.popen('cat /sys/class/thermal/thermal_zone0/temp')
+    output = stream.read()
+    stream.close()
+
+    return  'CPU temperature: ' + "{:.2f}".format(int(output)/1000) + ' °C'
 
 
 
@@ -1175,6 +1615,19 @@ def update_config(time_zone, days_and_points_in_chart, channel_to_show_a, channe
 
 
 
+#----- Removes focus from all Dropdowns in Cockpit after changing the value -----
+app.clientside_callback(
+    """
+    function(v1, v2, v3, v4, v5, v6, period) {
+        element = document.getElementById('top_bar');
+        element.focus();
+    }
+    """,
+    Output('hidden-div-5', 'children'),
+    [   Input('channel_to_monitor_a_graph', 'value'), Input('channel_to_monitor_b_graph', 'value'),
+        Input('channel_to_monitor_a', 'value'), Input('channel_to_monitor_b', 'value'), Input('channel_to_monitor_c', 'value'), Input('channel_to_monitor_d', 'value'),
+        Input('period_to_monitor', 'value') ]     
+)
 
 
 
@@ -1184,5 +1637,5 @@ def update_config(time_zone, days_and_points_in_chart, channel_to_show_a, channe
 
 
 if __name__ == '__main__':
-    app.run_server(debug=False, host='0.0.0.0', port=8050, threaded = True)
+    app.run_server(debug=False, host='0.0.0.0', port=5002, threaded = True)
 

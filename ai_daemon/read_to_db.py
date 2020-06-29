@@ -6,6 +6,7 @@ import os
 import threading
 import datetime
 import time
+import pandas as pd
 
 import mysql.connector
 import configparser
@@ -38,8 +39,8 @@ def write_config_messages():
         config.write(configfile)
         #fcntl.flock(configfile, fcntl.LOCK_UN)
 
-logging.basicConfig(filename='ai_daemon.log', filemode = 'w', level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logging.debug('Starting AI_Service')
+logging.basicConfig(filename='ai_daemon.log', filemode = 'w', level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.info('Starting AI_Service')
 
 
 def sigterm_handler(signal, frame):
@@ -79,6 +80,8 @@ rw_6 = RandomWalker()
 rw_7 = RandomWalker()
 
 current_table = ''
+current_date = ''
+
 writing_to_db_flag = True # writing to data base is possible if True
 WAIT_SECONDS = 1                                                        # sampling rate in secinds
 def analog_input_reader():
@@ -162,19 +165,19 @@ def analog_input_reader():
     timestamp = current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-7]      # data to db
     
     global current_table
+    global current_date
     global writing_to_db_flag
-    if current_table != current_time.strftime("%Y_%m_%d"):
-        current_table = current_time.strftime("%Y_%m_%d")
-        print('Creating tabele...')
+    current_table = 'general_data' 
+
+
+
+    if current_date != current_time.strftime("%Y-%m-%d"):
+        current_date = current_time.strftime("%Y-%m-%d")
+        print('Inserting date in Calendar...')
+        print(current_date)
         if writing_to_db_flag == True:
             writing_to_db_flag = False
-            mycursor.execute("CREATE TABLE IF NOT EXISTS {} (id INT NOT NULL AUTO_INCREMENT,\
-                            date_time_utc DATETIME(0), \
-                            temperature_1 FLOAT, temperature_2 FLOAT,\
-                            input_1 FLOAT, input_2 FLOAT, input_3 FLOAT, input_4 FLOAT, input_5 FLOAT, input_6 FLOAT, input_7 FLOAT, input_8 FLOAT,\
-                            in_1_calculated FLOAT, in_2_calculated FLOAT, in_3_calculated FLOAT, in_4_calculated FLOAT, in_5_calculated FLOAT, in_6_calculated FLOAT, in_7_calculated FLOAT, in_8_calculated FLOAT,\
-                            output_1 FLOAT, output_2 FLOAT, output_3 FLOAT, output_4 FLOAT,\
-                            comments TEXT, PRIMARY KEY (id))".format(current_table))
+            mycursor.execute('REPLACE INTO calendar SET date = "{}"'.format(current_date))
             mydb.commit()
             writing_to_db_flag = True
         else: 
@@ -182,6 +185,7 @@ def analog_input_reader():
     else:
         pass
 
+ 
     if writing_to_db_flag == True:
         writing_to_db_flag = False
         mycursor.execute(

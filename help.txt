@@ -1,1 +1,5 @@
 git log --pretty=format:"%h %s" --graph
+
+
+
+cat /sys/class/thermal/thermal_zone0/temp
