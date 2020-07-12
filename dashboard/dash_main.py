@@ -8,7 +8,6 @@ import dash_html_components as html
 import dash_core_components as dcc
 import dash_table
 from dash.dependencies import Input, Output, State
-#from classes_a import get_tables_list, get_data_from_db_average
 
 import plotly.graph_objects as go
 import numpy as np
@@ -35,18 +34,16 @@ def sigterm_handler(signal, frame):
     time.sleep(5)
     sys.exit(0)
 
-
 signal.signal(signal.SIGTERM, sigterm_handler)
 
 lock = Lock()
 
-logging.basicConfig(filename='dashboard.log', filemode = 'w', level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logging.info('Starting Dashboard')
-
+# logging.basicConfig(filename='dashboard.log', filemode = 'w', level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 db_reader_a = DB_Reader() # used for db_browser
 db_reader_b = DB_Reader() # used for cockpit
 
+running_from_utc = datetime.datetime.utcnow()
 
 
 work_dir = os.path.abspath(os.path.dirname(__file__))
@@ -54,10 +51,6 @@ work_dir = os.path.abspath(os.path.dirname(__file__))
 config = configparser.ConfigParser()
 config.read(work_dir + '/matrix.ini')
 print(os.path.abspath(os.path.dirname(__file__)))
-
-
-
-
 
 
 def write_config():
@@ -123,9 +116,6 @@ def channels_output():
 #-----------tab_0_content (Cockpit)-------------------
 def tab0_content():
 
-    logging.info('Redrowing Cockpit content')
-    print('Redrowing Cockpit content')
-
     global time_of_last_point_in_chart_a_graph
     #global df_a_graph, df_b_graph
     global fig
@@ -144,7 +134,7 @@ def tab0_content():
     # df_a_graph = pd.DataFrame({0:[datetime.datetime.strptime(start_date_time, "%Y_%m_%d %H:%M:%S"), datetime.datetime.strptime(stop_date_time, "%Y_%m_%d %H:%M:%S")], 1 :[0.0, 0.0]})
     # df_b_graph = pd.DataFrame({0:[datetime.datetime.strptime(start_date_time, "%Y_%m_%d %H:%M:%S"), datetime.datetime.strptime(stop_date_time, "%Y_%m_%d %H:%M:%S")], 1 :[0.0, 0.0]})
 
-    fig = go.Figure(data=go.Scattergl(mode='lines+markers', line=dict(color='#1E90FF', width=4, dash='dot'), x=[0], y=[0])) # use Scattergl for large data
+    fig = go.Figure(data=go.Scattergl(mode='markers', line=dict(color='#1E90FF', width=4), x=[0], y=[0])) # use Scattergl for large data  #dash='dot'
     fig['layout']['xaxis'].update(title='Date and Time', type='date', tickformat='%H:%M\n%b %d, %Y',  autorange=True)
     fig['layout']['yaxis'].update(title='...', autorange=True)
     #fig['layout'].update(autosize = True)
@@ -528,7 +518,12 @@ def settings_content():
     content_date_time = html.Div(dropdown_zime_zone, style={'min-height': '300px', 'text-align':'left'}, className='mt-3')
 
     # Content of 'General Info'
-    content_info = html.Div('Contennt of General Information', id='cpu_temp')
+    running_from = (timezone('UTC').localize(running_from_utc))
+    running_from = running_from.astimezone(timezone(config['db_browser']['local_time_zone']))
+    content_info = html.Div(children=[  html.Div('Contennt of General Information', id='cpu_temp'),
+                                        html.Div(running_from.strftime("Last system reboot: %d %B %Y, %H:%M:%S %Z")),
+                                  
+        ], style={'text-align': 'left'})
 
 
     tab_settings_label_style = {"color": "#007bff", "cursor": "pointer", "font-size": "large"} 
@@ -567,6 +562,7 @@ def serve_layout():
             #dbc.Tab(tab_id="tab-5", label='Level 5', children=[''], label_style=tab_label_style),
             dbc.Tab(tab_id="tab-settings", label='Settings', children=[settings_content()], label_style=tab_label_style),
             dcc.Interval(id='interval-component_60', interval=60*1000, n_intervals=0),  # Inreval triggers every 60 seconds. Used for the date and time notification
+            dcc.Interval(id='interval-component_30', interval=30*1000, n_intervals=0),  # Inreval triggers every 20 seconds
             dcc.Interval(id='interval-component_20', interval=20*1000, n_intervals=0),  # Inreval triggers every 20 seconds
             dcc.Interval(id='interval-component_10', interval=10*1000, n_intervals=0),  # Inreval triggers every 10 seconds
             dcc.Interval(id='interval-component_5', interval=5*1000, n_intervals=0),    # Inreval triggers every 5 seconds
@@ -575,7 +571,6 @@ def serve_layout():
 
 app.layout = serve_layout
 #### Heads up! You need to write app.layout = serve_layout not app.layout = serve_layout(). That is, define app.layout to the actual function instance.
-
 
 
 #-----------CALLBACKS---------------------  
@@ -657,19 +652,30 @@ def update_last_values(n, channel_to_monitor_a, channel_to_monitor_b, channel_to
 
 
 #--A------update live chart A in Cockpit, Store + client side calback-------
-
 @app.callback(  Output('store_to_append_a_graph', 'data'),
                 [Input('interval-component_60', 'n_intervals')],
                 [State('main_tabs', 'active_tab'), State('state_a_graph', 'data')]) 
-def update_graph_live(n, active_tab, state_a_graph):  
+def update_graph_live(n, active_tab, state_a_graph): 
+
+    descr_list = {  'empty':'...',
+                    'input_1':'Raw input', 'input_2':'Raw input', 'input_3':'Raw input', 'input_4':'Raw input', 'input_5':'Raw input', 'input_6':'Raw input', 'input_7':'Raw input', 'input_8':'Raw input',
+                    'in_1_calculated': config['AI']['ai_1_description'], 'in_2_calculated': config['AI']['ai_2_description'], 'in_3_calculated': config['AI']['ai_3_description'], 'in_4_calculated': config['AI']['ai_4_description'],
+                    'in_5_calculated': config['AI']['ai_5_description'], 'in_6_calculated': config['AI']['ai_6_description'], 'in_7_calculated': config['AI']['ai_7_description'], 'in_8_calculated': config['AI']['ai_8_description'],
+                    'output_1':config['AO']['ao_1_description'], 'output_2':config['AO']['ao_2_description'], 'output_3':config['AO']['ao_3_description'], 'output_4':config['AO']['ao_4_description']}   
+    units_list = {  'empty':'...',
+                    'input_1':'mA', 'input_2':'mA', 'input_3':'mA', 'input_4':'mA', 'input_5':'mA', 'input_6':'mA', 'input_7':'mA', 'input_8':'mA',
+                    'in_1_calculated': config['AI']['ai_1_units'], 'in_2_calculated': config['AI']['ai_2_units'], 'in_3_calculated': config['AI']['ai_3_units'], 'in_4_calculated': config['AI']['ai_4_units'],
+                    'in_5_calculated': config['AI']['ai_5_units'], 'in_6_calculated': config['AI']['ai_6_units'], 'in_7_calculated': config['AI']['ai_7_units'], 'in_8_calculated': config['AI']['ai_8_units'],
+                    'output_1':config['AO']['ao_1_units'], 'output_2':config['AO']['ao_2_units'], 'output_3':config['AO']['ao_3_units'], 'output_4':config['AO']['ao_4_units']}
+    yaxix_name = descr_list[config['cockpit']['data_to_show_a_graph']] + ', ' + units_list[config['cockpit']['data_to_show_a_graph']] 
     
- 
+    
     if active_tab == 'tab-0':
 
-        #global time_of_last_point_in_chart_a_graph
+        print('updating graph_a')
+
         global data_to_show_a_graph, period_to_monitor_a_graph
 
-        
 
         dict_of_periods =        {'1_hour':1, '3_hours':3, '12_hours':12, '24_hours':24, '3_days':72, '7_days':168}         # hours
         dict_of_smapling_times = {'1_hour':1, '3_hours':3, '12_hours':10, '24_hours':25, '3_days':60, '7_days':160}         # seconds
@@ -678,36 +684,37 @@ def update_graph_live(n, active_tab, state_a_graph):
         period = dict_of_smapling_times[config['cockpit']['period_to_monitor_a_graph']]
 
 
-        logging.info(state_a_graph)
-
         current_time_a = datetime.datetime.utcnow()
         if state_a_graph == None:
             time_of_last_point_in_chart_a_graph = current_time_a - datetime.timedelta(hours=hours)
-        else: time_of_last_point_in_chart_a_graph = (datetime.datetime.strptime(state_a_graph[1], '%Y-%m-%d %H:%M:%S'))  
-
+        else: 
+            time_of_last_point_in_chart_a_graph = (datetime.datetime.strptime(state_a_graph[1], '%Y-%m-%d %H:%M:%S'))  
+            
+            
+            time_of_last_point_in_chart_a_graph = timezone(config['db_browser']['local_time_zone']).localize(time_of_last_point_in_chart_a_graph)
+            time_of_last_point_in_chart_a_graph = time_of_last_point_in_chart_a_graph.astimezone(timezone('UTC'))
+            print(time_of_last_point_in_chart_a_graph)
+     
+        
+    
 
         
         if config['cockpit']['data_to_show_a_graph'] != data_to_show_a_graph or config['cockpit']['period_to_monitor_a_graph'] != period_to_monitor_a_graph or state_a_graph == None:
             lock.acquire()
-            print ('updating live chart a...')
             df_to_append_a = db_reader_b.get_data_generic__('date_time_utc', [config['cockpit']['data_to_show_a_graph']], (current_time_a - datetime.timedelta(hours=hours)).strftime("%Y_%m_%d %H:%M:%S"), current_time_a.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = period)
             lock.release()
             data_to_show_a_graph = config['cockpit']['data_to_show_a_graph']
             period_to_monitor_a_graph = config['cockpit']['period_to_monitor_a_graph']
             new_data_falg = 'True'
+       
             
             
         else: 
             lock.acquire()
-            print ('updating live chart a...')
             df_to_append_a = db_reader_b.get_data_generic__('date_time_utc', [config['cockpit']['data_to_show_a_graph']], (time_of_last_point_in_chart_a_graph + datetime.timedelta(seconds=1)).strftime("%Y_%m_%d %H:%M:%S"), current_time_a.strftime("%Y_%m_%d %H:%M:%S"), fetch_every_n_sec = period)
             lock.release()
             new_data_falg = 'False'
-            
-            
-
-
-        # time_of_last_point_in_chart_a_graph = current_time_a
+                    
 
         if df_to_append_a.empty:
             fig = go.Figure(data=go.Scattergl(mode='lines+markers', line=dict(color='#1E90FF', width=4, dash='dot'), x=[], y=[]))
@@ -717,10 +724,12 @@ def update_graph_live(n, active_tab, state_a_graph):
 
         datetime_list_of_strings = []
         for item in fig['data'][0]['x']:
-            datetime_list_of_strings.append(item.strftime("%Y-%m-%d %H:%M:%S"))
+            item_utc = timezone('UTC').localize(item)
+            item_local = item_utc.astimezone(timezone(config['db_browser']['local_time_zone']))
+            datetime_list_of_strings.append(item_local.strftime("%Y-%m-%d %H:%M:%S"))
 
-        logging.info([ datetime_list_of_strings, fig['data'][0]['y'], new_data_falg ])
-        return [ datetime_list_of_strings, fig['data'][0]['y'], new_data_falg ]
+
+        return [ datetime_list_of_strings, fig['data'][0]['y'], new_data_falg, yaxix_name ]
 
     else: 
         new_data_falg = 'False'
@@ -729,15 +738,14 @@ def update_graph_live(n, active_tab, state_a_graph):
         for item in fig['data'][0]['x']:
             datetime_list_of_strings.append(item.strftime("%Y-%m-%d %H:%M:%S"))
         
-        logging.info([ datetime_list_of_strings, fig['data'][0]['y'], new_data_falg ])
-        return  [ datetime_list_of_strings, fig['data'][0]['y'], new_data_falg ]
+        return  [ datetime_list_of_strings, fig['data'][0]['y'], new_data_falg, yaxix_name ]
 
 #--B--- clientside -----  
-
 app.clientside_callback(
     """
     function(data_to_append, data_in_memory) { 
 
+        yaxis_name = data_to_append[3]; 
 
         if (data_to_append[2] === 'True' || data_in_memory === undefined) {
             data_x = data_to_append[0];
@@ -751,7 +759,7 @@ app.clientside_callback(
         } ;
 
 
-        return [data_x, data_y, data_to_append[2]]
+        return [data_x, data_y, data_to_append[2], yaxis_name]
     }
 
     """,
@@ -759,14 +767,17 @@ app.clientside_callback(
     [Input('store_to_append_a_graph', 'data')],
     [State('memory_a_graph', 'data')]
 
-)
+                    )
 
 #--C--- clientside -----  
-
 app.clientside_callback(
     """
     function(data, figure) { 
- 
+
+        yaxis_name = data[3];
+        layout = figure['layout'];
+        layout['yaxis']['title']['text'] = yaxis_name; 
+
         data_fig = figure['data'];
         data_fig[0]['x'] = data[0];
         data_fig[0]['y'] = data[1];
@@ -776,10 +787,11 @@ app.clientside_callback(
         state_a_graph = [first_datetime, last_datetime];
                 
         console.log(state_a_graph); 
+        
 
         fig = {
             'data': data_fig,
-            'layout': figure['layout']
+            'layout': layout
         }
         
         return [fig, state_a_graph]
@@ -789,11 +801,7 @@ app.clientside_callback(
     [Input('memory_a_graph', 'data')],
     [State('live-chart-a', 'figure')]
 
-)
-
-
-
-
+                    )
 
 
 
@@ -1029,7 +1037,6 @@ def current_cell(   selected_cell, button_load_curves_input, data, days_and_poin
 
     #-----------------
     lock.acquire()
-    print ('updating day chart in browser...')
     try: 
         df_bbb = db_reader_a.get_data_generic__('date_time_utc', list_of_inputs_state, start_time.strftime('%Y_%m_%d %H:%M:%S'), end_time.strftime('%Y_%m_%d %H:%M:%S'), fetch_every_n_sec = fetch_sec_state) # df_b is list of pandas frames
         lock.release()
@@ -1620,7 +1627,10 @@ app.clientside_callback(
     """
     function(v1, v2, v3, v4, v5, v6, period) {
         element = document.getElementById('top_bar');
-        element.focus();
+        if (element === null) {
+        } else {
+            element.focus();
+        } ;
     }
     """,
     Output('hidden-div-5', 'children'),
